@@ -1,0 +1,13 @@
+# Directories
+.vs/
+bin/
+bin-int/
+Lab 01.exe
+Lab 01.ilk
+Lab 01.pdb
+Lab 01.log
+Lab 01.tlog
+Lab01.Build.CppClean.log
+
+# Files
+*.user
