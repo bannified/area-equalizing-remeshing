@@ -18,6 +18,7 @@
 #include "mesh.h"
 #include <map>
 #include <queue>
+#include <string>
 #include <iomanip>
 using namespace std;
 
@@ -53,7 +54,28 @@ void myObjType::draw() {
 
 void myObjType::writeFile(char* filename)
 {
+	ofstream outFile;
+	outFile.open(filename, ofstream::out);
+	if (!outFile.is_open()) {
+		cout << "File cannot be written to: " << filename << endl;
+		exit(2);
 	}
+
+	// write vertices
+	const string vertexPrefix = "v";
+	for (int i = 1; i < vcount; i++) {
+		double* vertex = vlist[i];
+		outFile << vertexPrefix << " " << vertex[0] << " " << vertex[1] << " " << vertex[2] << endl;
+	}
+
+	const string facePrefix = "f";
+	for (int i = 1; i < tcount; i++) {
+		int* tri = tlist[i];
+		outFile << facePrefix << " " << tri[0] << " " << tri[1] << " " << tri[2] << endl;
+	}
+
+	cout << "Writing to " << filename << " done.\n";
+}
 
 void myObjType::readFile(char* filename)
 {
