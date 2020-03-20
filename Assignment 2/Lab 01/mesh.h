@@ -28,6 +28,18 @@ inline OrTri enext(OrTri ot) {
     return makeOrTri(index, version);
 }
 
+inline OrTri sym(OrTri ot) {
+    int version = ver(ot);
+    int index = idx(ot);
+    if (version < 3) {
+        version += 3;
+    }
+    else {
+        version -= 3;
+    }
+    return makeOrTri(index, version);
+}
+
 class myObjType {
 	int vcount = 0;
 	int tcount = 0;
