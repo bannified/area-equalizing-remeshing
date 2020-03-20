@@ -15,7 +15,6 @@ inline OrTri enext(OrTri ot) {
 	                           v < 3 ? (v + 1) % 3 : 3 + ((v - 1) % 3)) ; };
 inline OrTri sym(OrTri ot) { int v = ver(ot); return v < 3 ? ot + 3 : ot - 3; };
 
-
 class myObjType {
 	int vcount = 0;
 	int tcount = 0;

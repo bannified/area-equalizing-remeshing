@@ -21,7 +21,7 @@
 #include <iomanip>
 using namespace std;
 
-
+#include "vec3.h"
 
 void myObjType::draw() {
 
@@ -40,7 +40,7 @@ void myObjType::draw() {
 	{
 		glBegin(GL_POLYGON);
 // uncomment the following after you computed the normals
-//		glNormal3dv(nlist[i]);    
+		glNormal3dv(nlist[i]);    
 		for (int j = 0; j < 3; j++)
 			glVertex3dv(vlist[tlist[i][j]]);
 		glEnd();
@@ -120,6 +120,19 @@ void myObjType::readFile(char* filename)
 	}
 
 	// We suggest you to compute the normals here
+    for (int i = 1; i <= tcount; i++) {
+        int* vertices = tlist[i];
+        vec3 v0 = vec3(vlist[vertices[0]][0], vlist[vertices[0]][1], vlist[vertices[0]][2]);
+        vec3 v1 = vec3(vlist[vertices[1]][0], vlist[vertices[1]][1], vlist[vertices[1]][2]);
+        vec3 v2 = vec3(vlist[vertices[2]][0], vlist[vertices[2]][1], vlist[vertices[2]][2]);
+
+        vec3 v01 = v1 - v0;
+        vec3 v02 = v2 - v0;
+        vec3 crossProd = cross(v01, v02);
+        crossProd.normalize();
+
+        crossProd.copyToArray(nlist[i]);
+    }
 
     cout << "No. of vertices: " << vcount << endl;
     cout << "No. of triangles: " << tcount << endl;
@@ -131,10 +144,45 @@ void myObjType::readFile(char* filename)
 void myObjType::computeStat()
 {
 	int i;
-    double minAngle = 0;
+    double minAngle = 180;
     double maxAngle = 0;
 
-    
+    for (int i = 1; i <= tcount; i++) {
+        int* vertices = tlist[i];
+        vec3 v0 = vec3(vlist[vertices[0]][0], vlist[vertices[0]][1], vlist[vertices[0]][2]);
+        vec3 v1 = vec3(vlist[vertices[1]][0], vlist[vertices[1]][1], vlist[vertices[1]][2]);
+        vec3 v2 = vec3(vlist[vertices[2]][0], vlist[vertices[2]][1], vlist[vertices[2]][2]);
+
+        vec3 v01 = v1 - v0;
+        vec3 v02 = v2 - v0;
+        
+        vec3 v12 = v2 - v1;
+        vec3 v10 = -v01;
+
+        double dot102 = dot(v01, v02);
+        double angle102 = rad2Deg(acos(dot102 / (magnitude(v01) * magnitude(v02))));
+
+        double dot210 = dot(v12, v10);
+        double angle210 = rad2Deg(acos(dot210 / (magnitude(v12) * magnitude(v10))));
+
+        double angle120 = 180.0f - angle102 - angle210;
+
+        double tMinAngle = min(angle102, min(angle210, angle120));
+        double tMaxAngle = max(angle102, max(angle210, angle120));
+
+        if (tMinAngle < minAngle) {
+            minAngle = tMinAngle;
+        }
+        int minBucketIndex = tMinAngle / 10.0f;
+        ++(statMinAngle[minBucketIndex]);
+
+        if (tMaxAngle > maxAngle) {
+            maxAngle = tMaxAngle;
+        }
+        int maxBucketIndex = tMaxAngle / 10;
+        ++(statMaxAngle[maxBucketIndex]);
+    }
+
     cout << "Min. angle = " << minAngle << endl;
     cout << "Max. angle = " << maxAngle << endl;
 
