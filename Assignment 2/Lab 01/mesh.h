@@ -14,31 +14,31 @@ inline OrTri enext(OrTri ot) {
 	int v = ver(ot);  return makeOrTri(idx(ot),
 	                           v < 3 ? (v + 1) % 3 : 3 + ((v - 1) % 3)) ; };
 inline OrTri sym(OrTri ot) { int v = ver(ot); return v < 3 ? ot + 3 : ot - 3; };
-
-inline OrTri enext(OrTri ot) {
-    int version = ver(ot);
-    int index = idx(ot);
-    ++version;
-    if (version <= 3) {
-        version %= 3;
-    }
-    else {
-        version = 3 + (version - 3) % 3;
-    }
-    return makeOrTri(index, version);
-}
-
-inline OrTri sym(OrTri ot) {
-    int version = ver(ot);
-    int index = idx(ot);
-    if (version < 3) {
-        version += 3;
-    }
-    else {
-        version -= 3;
-    }
-    return makeOrTri(index, version);
-}
+//
+//inline OrTri enext(OrTri ot) {
+//    int version = ver(ot);
+//    int index = idx(ot);
+//    ++version;
+//    if (version <= 3) {
+//        version %= 3;
+//    }
+//    else {
+//        version = 3 + (version - 3) % 3;
+//    }
+//    return makeOrTri(index, version);
+//}
+//
+//inline OrTri sym(OrTri ot) {
+//    int version = ver(ot);
+//    int index = idx(ot);
+//    if (version < 3) {
+//        version += 3;
+//    }
+//    else {
+//        version -= 3;
+//    }
+//    return makeOrTri(index, version);
+//}
 
 class myObjType {
 	int vcount = 0;
