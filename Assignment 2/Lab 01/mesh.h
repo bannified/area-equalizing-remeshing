@@ -63,6 +63,9 @@ public:
 	void draw();  
     void computeStat();
 
+    int org(OrTri ot);
+    int dest(OrTri ot);
+
 };
 
 

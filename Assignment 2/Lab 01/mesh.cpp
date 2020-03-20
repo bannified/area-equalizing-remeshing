@@ -217,3 +217,39 @@ void myObjType::computeStat()
 		cout << statMinAngle[i] << " ";
 	cout << endl;
 }
+
+int myObjType::org(OrTri ot)
+{
+    int version = ver(ot);
+    int* tri = tlist[idx(ot)];
+
+    switch (version) {
+    case 0:
+    case 5:
+        return tri[0];
+    case 1:
+    case 3:
+        return tri[1];
+    case 2:
+    case 4:
+        return tri[2];
+    }
+}
+
+int myObjType::dest(OrTri ot)
+{
+    int version = ver(ot);
+    int* tri = tlist[idx(ot)];
+
+    switch (version) {
+    case 2:
+    case 3:
+        return tri[0];
+    case 0:
+    case 4:
+        return tri[1];
+    case 1:
+    case 5:
+        return tri[2];
+    }
+}
