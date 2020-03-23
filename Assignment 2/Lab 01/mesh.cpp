@@ -130,16 +130,66 @@ void myObjType::readFile(char* filename)
 					while (linec[j] != ' ' && linec[j] != '\\') j++;
 					tlist[tcount][k] = atof(line.substr(i, j - i).c_str());
 					i = j;
-					fnlist[tcount][k] = 0;
 					while (linec[j] != ' ') j++;
 
 				}
-
 			}
-
-
 		}
 	}
+
+    for (int i = 1; i <= tcount; i++) {
+        int* vertices = tlist[i];
+        // Fill fnext list for face i.
+        for (int k = 0; k < NUM_FNEXT; k++) {
+            OrTri ot = makeOrTri(i, k);
+            int origin = org(ot);
+            int destination = dest(ot);
+
+            int fnextTriIdx = 0;
+            // finding index of triangle that shares the same edge.
+            for (int curr = 1; curr <= tcount; curr++) {
+                if (curr == i) continue;
+                int* currTriVerts = tlist[curr];
+
+                bool foundOrg = false, foundDest = false;
+
+                for (int vert = 0; vert < 3; vert++) {
+                    int vertIdx = currTriVerts[vert];
+                    if (!foundOrg && vertIdx == origin) {
+                        foundOrg = true;
+                        continue;
+                    }
+
+                    if (!foundDest && vertIdx == destination) {
+                        foundDest = true;
+                        continue;
+                    }
+                }
+
+                if (foundDest && foundOrg) {
+                    fnextTriIdx = curr;
+                    break;
+                }
+            }
+
+            if (fnextTriIdx == 0) {
+                // no triangle found for this fnext
+                fnlist[i][k] = 0;
+                continue;
+            }
+
+            // Finding triangle version
+            for (int version = 0; version < 6; version++) {
+                OrTri fnextOt = makeOrTri(fnextTriIdx, version);
+                if (dest(fnextOt) == destination && org(fnextOt) == origin) {
+                    fnlist[i][k] = fnextOt;
+                    break;
+                }
+            }
+        }
+    }
+
+    printfnList();
 
 	// We suggest you to compute the normals here
     for (int i = 1; i <= tcount; i++) {
@@ -252,4 +302,44 @@ int myObjType::dest(OrTri ot)
     case 5:
         return tri[2];
     }
+}
+
+int myObjType::last(OrTri ot)
+{
+    int version = ver(ot);
+    int* tri = tlist[idx(ot)];
+
+    switch (version) {
+    case 1:
+    case 4:
+        return tri[0];
+    case 2:
+    case 5:
+        return tri[1];
+    case 0:
+    case 3:
+        return tri[2];
+    }
+}
+
+void myObjType::printfnList()
+{
+    for (int i = 1; i <= tcount; i++) {
+        int* trifn = fnlist[i];
+
+        std::cout << "Triangle " << i << "(";
+        printOrTri(makeOrTri(i, 0));
+        std::cout << ") : ";
+        for (int k = 0; k < 6; k++) {
+            printOrTri(trifn[k]);
+            std::cout << "    ";
+        }
+
+        std::cout << endl;
+    }
+}
+
+void myObjType::printOrTri(OrTri ot)
+{
+    std::cout << org(ot) << "|" << dest(ot) << "|" << last(ot);
 }
