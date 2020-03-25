@@ -24,12 +24,15 @@ class myObjType {
 	int tlist[MAXT][3];      // triangle list
 	int fnlist[MAXT][6];     // fnext list
 	double nlist[MAXT][3];   // storing triangle normals
+    int triComponentNumber[MAXT];      // triangle list
 	
 	double lmax[3];          // the maximum coordinates of x,y,z
 	double lmin[3];          // the minimum coordinates of x,y,z
 
 	int statMinAngle[18]; // each bucket is  degrees has a 10 degree range from 0 to 180 degree
 	int statMaxAngle[18]; 
+
+    int numComponents;
 
 
 public:

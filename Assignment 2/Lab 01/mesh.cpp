@@ -137,7 +137,9 @@ void myObjType::readFile(char* filename)
 		}
 	}
 
+    // Lab 2 (main): Populating fnext list
     for (int i = 1; i <= tcount; i++) {
+        std::cout << "Populating fnext for triangle: " << i << "/" << tcount << std::endl;
         int* vertices = tlist[i];
         // Fill fnext list for face i.
         for (int k = 0; k < NUM_FNEXT; k++) {
@@ -188,8 +190,52 @@ void myObjType::readFile(char* filename)
             }
         }
     }
+    
+    //printfnList();
 
-    printfnList();
+    // Lab 2 Optional: Computing number of components
+    numComponents = 0;
+    int unvisitedTCount = tcount;
+    bool visitedTris[MAXT] = { 0 };
+
+    while (unvisitedTCount > 0) {
+        int startingTri = 0;
+        for (int i = 1; i <= tcount; i++) {
+            if (!visitedTris[i]) {
+                startingTri = i;
+                break;
+            }
+        }
+
+        ++numComponents;
+
+        // start BFS, ignoring nodes already at frontier
+        std::queue<int> frontier;
+        frontier.push(startingTri);
+
+        while (!frontier.empty()) {
+            int curr = frontier.front();
+            frontier.pop();
+
+            if (visitedTris[curr]) {
+                continue;
+            }
+
+            int* fnexts = fnlist[curr];
+            for (int f = 0; f < NUM_FNEXT; f++) {
+                int index = idx(fnexts[f]);
+                if (index > 0 && !visitedTris[index]) {
+                    frontier.push(index);
+                }
+            }
+            triComponentNumber[curr] = numComponents;
+            visitedTris[curr] = true;
+            --unvisitedTCount;
+            std::cout << "triangles left: " << unvisitedTCount << "/" << tcount << std::endl;
+        }
+    }
+
+    std::cout << "Number of components: " << numComponents << std::endl;
 
 	// We suggest you to compute the normals here
     for (int i = 1; i <= tcount; i++) {
