@@ -10,6 +10,8 @@
 #endif
 
 #include "math.h"
+#include <algorithm>
+#include <iterator>
 #include <string>
 #include <stdio.h>
 #include <fstream>
@@ -137,12 +139,19 @@ void myObjType::readFile(char* filename)
 		}
 	}
 
+    std::fill(fnlist[0], fnlist[0] + MAXT * NUM_FNEXT, 0);
+
     // Lab 2 (main): Populating fnext list
     for (int i = 1; i <= tcount; i++) {
         std::cout << "Populating fnext for triangle: " << i << "/" << tcount << std::endl;
         int* vertices = tlist[i];
         // Fill fnext list for face i.
         for (int k = 0; k < NUM_FNEXT; k++) {
+            if (fnlist[i][k] != 0) {
+                // already filled.
+                continue;
+            }
+
             OrTri ot = makeOrTri(i, k);
             int origin = org(ot);
             int destination = dest(ot);
@@ -185,13 +194,14 @@ void myObjType::readFile(char* filename)
                 OrTri fnextOt = makeOrTri(fnextTriIdx, version);
                 if (dest(fnextOt) == destination && org(fnextOt) == origin) {
                     fnlist[i][k] = fnextOt;
+                    fnlist[fnextTriIdx][version] = ot;
                     break;
                 }
             }
         }
     }
     
-    //printfnList();
+    printfnList();
 
     // Lab 2 Optional: Computing number of components
     numComponents = 0;
