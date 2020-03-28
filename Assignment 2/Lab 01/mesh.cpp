@@ -18,6 +18,7 @@
 #include <iostream>
 #include <vector>
 #include "mesh.h"
+#include "ScopedTimer.h"
 #include <map>
 #include <queue>
 #include <string>
@@ -93,178 +94,195 @@ void myObjType::readFile(char* filename)
 	int i, j;
 	bool firstVertex = 1;
 	double currCood;
+    {
+        ScopedTimer timer("File parsing");
 
-	while (getline(inFile, line))
-	{
-		if ((line[0] == 'v' || line[0] == 'f') && line[1] == ' ')
-		{
-			if (line[0] == 'v')
-			{
-				vcount++;
-				i = 1;
-				const char* linec = line.data();
-				for (int k = 0; k < 3; k++) { // k is 0,1,2 for x,y,z
-					while (linec[i] == ' ') i++;
-					j = i;
-					while (linec[j] != ' ') j++;
-					currCood = vlist[vcount][k] = atof(line.substr(i, j - i).c_str());
-					if (firstVertex) 
-						lmin[k] = lmax[k] = currCood;
-					else {
-						if (lmin[k] > currCood)
-							lmin[k] = currCood;
-						if (lmax[k] < currCood)
-							lmax[k] = currCood;
-					}
-					i = j;
-				}
-
-				firstVertex = 0;
-			}
-			if (line[0] == 'f')
-			{
-				tcount++;
-				i = 1;
-				const char* linec = line.data();
-				for (int k = 0; k < 3; k++) {
-					while (linec[i] == ' ') i++;
-					j = i;
-					while (linec[j] != ' ' && linec[j] != '\\') j++;
-					tlist[tcount][k] = atof(line.substr(i, j - i).c_str());
-					i = j;
-					while (linec[j] != ' ') j++;
-
-				}
-			}
-		}
-	}
-
-    std::fill(fnlist[0], fnlist[0] + MAXT * NUM_FNEXT, 0);
-
-    // Lab 2 (main): Populating fnext list
-    for (int i = 1; i <= tcount; i++) {
-        std::cout << "Populating fnext for triangle: " << i << "/" << tcount << std::endl;
-        int* vertices = tlist[i];
-        // Fill fnext list for face i.
-        for (int k = 0; k < NUM_FNEXT; k++) {
-            if (fnlist[i][k] != 0) {
-                // already filled.
-                continue;
-            }
-
-            OrTri ot = makeOrTri(i, k);
-            int origin = org(ot);
-            int destination = dest(ot);
-
-            int fnextTriIdx = 0;
-            // finding index of triangle that shares the same edge.
-            for (int curr = 1; curr <= tcount; curr++) {
-                if (curr == i) continue;
-                int* currTriVerts = tlist[curr];
-
-                bool foundOrg = false, foundDest = false;
-
-                for (int vert = 0; vert < 3; vert++) {
-                    int vertIdx = currTriVerts[vert];
-                    if (!foundOrg && vertIdx == origin) {
-                        foundOrg = true;
-                        continue;
+        while (getline(inFile, line))
+        {
+            if ((line[0] == 'v' || line[0] == 'f') && line[1] == ' ')
+            {
+                if (line[0] == 'v')
+                {
+                    vcount++;
+                    i = 1;
+                    const char* linec = line.data();
+                    for (int k = 0; k < 3; k++) { // k is 0,1,2 for x,y,z
+                        while (linec[i] == ' ') i++;
+                        j = i;
+                        while (linec[j] != ' ') j++;
+                        currCood = vlist[vcount][k] = atof(line.substr(i, j - i).c_str());
+                        if (firstVertex)
+                            lmin[k] = lmax[k] = currCood;
+                        else {
+                            if (lmin[k] > currCood)
+                                lmin[k] = currCood;
+                            if (lmax[k] < currCood)
+                                lmax[k] = currCood;
+                        }
+                        i = j;
                     }
 
-                    if (!foundDest && vertIdx == destination) {
-                        foundDest = true;
-                        continue;
+                    firstVertex = 0;
+                }
+                if (line[0] == 'f')
+                {
+                    tcount++;
+                    i = 1;
+                    const char* linec = line.data();
+                    for (int k = 0; k < 3; k++) {
+                        while (linec[i] == ' ') i++;
+                        j = i;
+                        while (linec[j] != ' ' && linec[j] != '\\') j++;
+                        tlist[tcount][k] = atof(line.substr(i, j - i).c_str());
+                        i = j;
+                        while (linec[j] != ' ') j++;
+
+                    }
+                }
+            }
+        }
+    }
+
+    {
+        ScopedTimer timer("fnext Population");
+
+        std::fill(fnlist[0], fnlist[0] + MAXT * NUM_FNEXT, 0);
+
+        // Lab 2 (main): Populating fnext list
+        for (int i = 1; i <= tcount; i++) {
+            //std::cout << "Populating fnext for triangle: " << i << "/" << tcount << std::endl;
+            int* vertices = tlist[i];
+            // Fill fnext list for face i.
+            for (int k = 0; k < NUM_FNEXT; k++) {
+                if (fnlist[i][k] != 0) {
+                    // already filled.
+                    continue;
+                }
+
+                OrTri ot = makeOrTri(i, k);
+                int origin = org(ot);
+                int destination = dest(ot);
+
+                int fnextTriIdx = 0;
+                // finding index of triangle that shares the same edge.
+                for (int curr = 1; curr <= tcount; curr++) {
+                    if (curr == i) continue;
+                    int* currTriVerts = tlist[curr];
+
+                    bool foundOrg = false, foundDest = false;
+
+                    for (int vert = 0; vert < 3; vert++) {
+                        int vertIdx = currTriVerts[vert];
+                        if (!foundOrg && vertIdx == origin) {
+                            foundOrg = true;
+                            continue;
+                        }
+
+                        if (!foundDest && vertIdx == destination) {
+                            foundDest = true;
+                            continue;
+                        }
+                    }
+
+                    if (foundDest && foundOrg) {
+                        fnextTriIdx = curr;
+                        break;
                     }
                 }
 
-                if (foundDest && foundOrg) {
-                    fnextTriIdx = curr;
-                    break;
+                if (fnextTriIdx == 0) {
+                    // no triangle found for this fnext
+                    fnlist[i][k] = 0;
+                    continue;
                 }
-            }
 
-            if (fnextTriIdx == 0) {
-                // no triangle found for this fnext
-                fnlist[i][k] = 0;
-                continue;
-            }
-
-            // Finding triangle version
-            for (int version = 0; version < 6; version++) {
-                OrTri fnextOt = makeOrTri(fnextTriIdx, version);
-                if (dest(fnextOt) == destination && org(fnextOt) == origin) {
-                    fnlist[i][k] = fnextOt;
-                    fnlist[fnextTriIdx][version] = ot;
-                    break;
+                // Finding triangle version
+                for (int version = 0; version < 6; version++) {
+                    OrTri fnextOt = makeOrTri(fnextTriIdx, version);
+                    if (dest(fnextOt) == destination && org(fnextOt) == origin) {
+                        fnlist[i][k] = fnextOt;
+                        fnlist[fnextTriIdx][version] = ot;
+                        break;
+                    }
                 }
             }
         }
     }
     
-    printfnList();
+    //printfnList();
 
     // Lab 2 Optional: Computing number of components
-    numComponents = 0;
-    int unvisitedTCount = tcount;
-    bool visitedTris[MAXT] = { 0 };
+    {
+        ScopedTimer timer("Computing number of components");
 
-    while (unvisitedTCount > 0) {
-        int startingTri = 0;
-        for (int i = 1; i <= tcount; i++) {
-            if (!visitedTris[i]) {
-                startingTri = i;
-                break;
-            }
-        }
+        numComponents = 0;
+        int unvisitedTCount = tcount;
+        bool visitedTris[MAXT] = { 0 };
 
-        ++numComponents;
-
-        // start BFS, ignoring nodes already at frontier
-        std::queue<int> frontier;
-        frontier.push(startingTri);
-
-        while (!frontier.empty()) {
-            int curr = frontier.front();
-            frontier.pop();
-
-            if (visitedTris[curr]) {
-                continue;
-            }
-
-            int* fnexts = fnlist[curr];
-            for (int f = 0; f < NUM_FNEXT; f++) {
-                int index = idx(fnexts[f]);
-                if (index > 0 && !visitedTris[index]) {
-                    frontier.push(index);
+        while (unvisitedTCount > 0) {
+            int startingTri = 0;
+            for (int i = 1; i <= tcount; i++) {
+                if (!visitedTris[i]) {
+                    startingTri = i;
+                    break;
                 }
             }
-            triComponentNumber[curr] = numComponents;
-            visitedTris[curr] = true;
-            --unvisitedTCount;
-            std::cout << "triangles left: " << unvisitedTCount << "/" << tcount << std::endl;
+
+            ++numComponents;
+
+            // start BFS, ignoring nodes already at frontier
+            std::queue<int> frontier;
+            frontier.push(startingTri);
+
+            while (!frontier.empty()) {
+                int curr = frontier.front();
+                frontier.pop();
+
+                if (visitedTris[curr]) {
+                    continue;
+                }
+
+                int* fnexts = fnlist[curr];
+                for (int f = 0; f < NUM_FNEXT; f++) {
+                    int index = idx(fnexts[f]);
+                    if (index > 0 && !visitedTris[index]) {
+                        frontier.push(index);
+                    }
+                }
+                triComponentNumber[curr] = numComponents;
+                visitedTris[curr] = true;
+                --unvisitedTCount;
+                //std::cout << "triangles left: " << unvisitedTCount << "/" << tcount << std::endl;
+            }
         }
     }
 
     std::cout << "Number of components: " << numComponents << std::endl;
 
-	// We suggest you to compute the normals here
-    for (int i = 1; i <= tcount; i++) {
-        int* vertices = tlist[i];
-        vec3 v0 = vec3(vlist[vertices[0]][0], vlist[vertices[0]][1], vlist[vertices[0]][2]);
-        vec3 v1 = vec3(vlist[vertices[1]][0], vlist[vertices[1]][1], vlist[vertices[1]][2]);
-        vec3 v2 = vec3(vlist[vertices[2]][0], vlist[vertices[2]][1], vlist[vertices[2]][2]);
+    {
+        ScopedTimer timer("Normal computation");
 
-        vec3 v01 = v1 - v0;
-        vec3 v02 = v2 - v0;
-        vec3 crossProd = cross(v01, v02);
-        crossProd.normalize();
+        for (int i = 1; i <= tcount; i++) {
+            int* vertices = tlist[i];
+            vec3 v0 = vec3(vlist[vertices[0]][0], vlist[vertices[0]][1], vlist[vertices[0]][2]);
+            vec3 v1 = vec3(vlist[vertices[1]][0], vlist[vertices[1]][1], vlist[vertices[1]][2]);
+            vec3 v2 = vec3(vlist[vertices[2]][0], vlist[vertices[2]][1], vlist[vertices[2]][2]);
 
-        crossProd.copyToArray(nlist[i]);
+            vec3 v01 = v1 - v0;
+            vec3 v02 = v2 - v0;
+            vec3 crossProd = cross(v01, v02);
+            crossProd.normalize();
+
+            crossProd.copyToArray(nlist[i]);
+        }
     }
 
     cout << "No. of vertices: " << vcount << endl;
     cout << "No. of triangles: " << tcount << endl;
-    computeStat();
+    {
+        ScopedTimer timer("Stats computation");
+        computeStat();
+    }
 }
 
 
