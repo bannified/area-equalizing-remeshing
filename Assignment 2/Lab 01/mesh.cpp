@@ -23,6 +23,8 @@
 #include <queue>
 #include <string>
 #include <iomanip>
+#include <utility>
+#include <unordered_map>
 using namespace std;
 
 #include "vec3.h"
@@ -143,6 +145,17 @@ void myObjType::readFile(char* filename)
         }
     }
 
+    unordered_map<int, vector<int> > vertexToTriangles;
+    {
+        ScopedTimer timer("vertex to Triangles");
+        for (int i = 1; i <= tcount; i++) {
+            int* vertices = tlist[i];
+            vertexToTriangles[vertices[0]].emplace_back(i);
+            vertexToTriangles[vertices[1]].emplace_back(i);
+            vertexToTriangles[vertices[2]].emplace_back(i);
+        }
+    }
+
     {
         ScopedTimer timer("fnext Population");
 
@@ -164,35 +177,23 @@ void myObjType::readFile(char* filename)
                 int destination = dest(ot);
 
                 int fnextTriIdx = 0;
-                // finding index of triangle that shares the same edge.
-                for (int curr = 1; curr <= tcount; curr++) {
-                    if (curr == i) continue;
-                    int* currTriVerts = tlist[curr];
 
-                    bool foundOrg = false, foundDest = false;
-
-                    for (int vert = 0; vert < 3; vert++) {
-                        int vertIdx = currTriVerts[vert];
-                        if (!foundOrg && vertIdx == origin) {
-                            foundOrg = true;
-                            continue;
-                        }
-
-                        if (!foundDest && vertIdx == destination) {
-                            foundDest = true;
-                            continue;
+                vector<int> orgVertexTris = vertexToTriangles[origin];
+                for (int tri : orgVertexTris) {
+                    if (tri == i) continue;
+                    int* ovtVerts = tlist[tri];
+                    for (int v = 0; v < 3; v++) {
+                        if (ovtVerts[v] == destination) {
+                            fnextTriIdx = tri;
+                            break;
                         }
                     }
-
-                    if (foundDest && foundOrg) {
-                        fnextTriIdx = curr;
-                        break;
-                    }
+                    if (fnextTriIdx != 0) break;
                 }
 
                 if (fnextTriIdx == 0) {
                     // no triangle found for this fnext
-                    fnlist[i][k] = 0;
+                    fnlist[i][k] = ot;
                     continue;
                 }
 
