@@ -24,6 +24,7 @@ class myObjType {
 	int tlist[MAXT][3];      // triangle list
 	int fnlist[MAXT][6];     // fnext list
 	double nlist[MAXT][3];   // storing triangle normals
+    float colorlist[MAXT][4];   // colors list
     int triComponentNumber[MAXT];      // triangle list
 	
 	double lmax[3];          // the maximum coordinates of x,y,z
@@ -50,6 +51,8 @@ private:
     void printfnList();
 
     void printOrTri(OrTri ot);
+
+    void setVertexColor(int vIdx, float r, float g, float b);
 };
 
 

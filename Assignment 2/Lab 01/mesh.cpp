@@ -31,71 +31,73 @@ using namespace std;
 
 void myObjType::draw() {
 
-	glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHTING);
 
-	glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
 
-	glPushMatrix();
-	double longestSide = 0.0;
-	for (int i = 0; i < 3; i++)
-		if ((lmax[i] - lmin[i]) > longestSide)
-			longestSide = (lmax[i] - lmin[i]);
-	glScalef(4.0 / longestSide, 4.0 / longestSide, 4.0 / longestSide);
-	glTranslated(-(lmin[0] + lmax[0]) / 2.0, -(lmin[1] + lmax[1]) / 2.0, -(lmin[2] + lmax[2]) / 2.0);
-	for (int i = 1; i <= tcount; i++)
-	{
-		glBegin(GL_POLYGON);
-// uncomment the following after you computed the normals
-		glNormal3dv(nlist[i]);    
-		for (int j = 0; j < 3; j++)
-			glVertex3dv(vlist[tlist[i][j]]);
-		glEnd();
-	
-	}
-	glDisable(GL_LIGHTING);
+    glPushMatrix();
+    double longestSide = 0.0;
+    for (int i = 0; i < 3; i++)
+        if ((lmax[i] - lmin[i]) > longestSide)
+            longestSide = (lmax[i] - lmin[i]);
+    glScalef(4.0 / longestSide, 4.0 / longestSide, 4.0 / longestSide);
+    glTranslated(-(lmin[0] + lmax[0]) / 2.0, -(lmin[1] + lmax[1]) / 2.0, -(lmin[2] + lmax[2]) / 2.0);
+    for (int i = 1; i <= tcount; i++)
+    {
+        glBegin(GL_POLYGON);
+        // uncomment the following after you computed the normals
+        glNormal3dv(nlist[i]);
+        for (int j = 0; j < 3; j++) {
+            glMaterialfv(GL_FRONT, GL_AMBIENT, colorlist[tlist[i][j]]);
+            glVertex3dv(vlist[tlist[i][j]]);
+        }
+        glEnd();
 
-	glPopMatrix();
+    }
+    glDisable(GL_LIGHTING);
+
+    glPopMatrix();
 }
 
 void myObjType::writeFile(char* filename)
 {
-	ofstream outFile;
-	outFile.open(filename, ofstream::out);
-	if (!outFile.is_open()) {
-		cout << "File cannot be written to: " << filename << endl;
-		exit(2);
-	}
+    ofstream outFile;
+    outFile.open(filename, ofstream::out);
+    if (!outFile.is_open()) {
+        cout << "File cannot be written to: " << filename << endl;
+        exit(2);
+    }
 
-	// write vertices
-	const string vertexPrefix = "v";
-	for (int i = 1; i < vcount; i++) {
-		double* vertex = vlist[i];
-		outFile << vertexPrefix << " " << vertex[0] << " " << vertex[1] << " " << vertex[2] << endl;
-	}
+    // write vertices
+    const string vertexPrefix = "v";
+    for (int i = 1; i < vcount; i++) {
+        double* vertex = vlist[i];
+        outFile << vertexPrefix << " " << vertex[0] << " " << vertex[1] << " " << vertex[2] << endl;
+    }
 
-	const string facePrefix = "f";
-	for (int i = 1; i < tcount; i++) {
-		int* tri = tlist[i];
-		outFile << facePrefix << " " << tri[0] << " " << tri[1] << " " << tri[2] << endl;
-	}
+    const string facePrefix = "f";
+    for (int i = 1; i < tcount; i++) {
+        int* tri = tlist[i];
+        outFile << facePrefix << " " << tri[0] << " " << tri[1] << " " << tri[2] << endl;
+    }
 
-	cout << "Writing to " << filename << " done.\n";
+    cout << "Writing to " << filename << " done.\n";
 }
 
 void myObjType::readFile(char* filename)
 {
-	cout << "Opening " << filename << endl;
-	ifstream inFile;
-	inFile.open(filename);
-	if (!inFile.is_open()) {
-		cout << "We cannot find your file " << filename << endl;
-		exit(1);
-	}
+    cout << "Opening " << filename << endl;
+    ifstream inFile;
+    inFile.open(filename);
+    if (!inFile.is_open()) {
+        cout << "We cannot find your file " << filename << endl;
+        exit(1);
+    }
 
-	string line;
-	int i, j;
-	bool firstVertex = 1;
-	double currCood;
+    string line;
+    int i, j;
+    bool firstVertex = 1;
+    double currCood;
     {
         ScopedTimer timer("File parsing");
 
@@ -142,6 +144,16 @@ void myObjType::readFile(char* filename)
                     }
                 }
             }
+        }
+    }
+
+    // Color
+    {
+        for (int i = 1; i <= tcount; i++) {
+            for (int j = 1; j <= 3; j++) {
+                colorlist[i][j] = 0.5f;
+            }
+            colorlist[i][3] = 1.0f;
         }
     }
 
@@ -194,6 +206,10 @@ void myObjType::readFile(char* filename)
                 if (fnextTriIdx == 0) {
                     // no triangle found for this fnext
                     fnlist[i][k] = ot;
+
+                    setVertexColor(origin, 1.0f, 0.0f, 0.0f);
+                    setVertexColor(destination, 1.0f, 0.0f, 0.0f);
+
                     continue;
                 }
 
@@ -209,7 +225,7 @@ void myObjType::readFile(char* filename)
             }
         }
     }
-    
+
     //printfnList();
 
     // Lab 2 Optional: Computing number of components
@@ -287,10 +303,9 @@ void myObjType::readFile(char* filename)
 }
 
 
-
 void myObjType::computeStat()
 {
-	int i;
+    int i;
     double minAngle = 180;
     double maxAngle = 0;
 
@@ -302,7 +317,7 @@ void myObjType::computeStat()
 
         vec3 v01 = v1 - v0;
         vec3 v02 = v2 - v0;
-        
+
         vec3 v12 = v2 - v1;
         vec3 v10 = -v01;
 
@@ -333,14 +348,14 @@ void myObjType::computeStat()
     cout << "Min. angle = " << minAngle << endl;
     cout << "Max. angle = " << maxAngle << endl;
 
-	cout << "Statistics for Maximum Angles" << endl;
-	for (i = 0; i < 18; i++)
-		cout << statMaxAngle[i] << " ";
-	cout << endl;
-	cout << "Statistics for Minimum Angles" << endl;
-	for (i = 0; i < 18; i++)
-		cout << statMinAngle[i] << " ";
-	cout << endl;
+    cout << "Statistics for Maximum Angles" << endl;
+    for (i = 0; i < 18; i++)
+        cout << statMaxAngle[i] << " ";
+    cout << endl;
+    cout << "Statistics for Minimum Angles" << endl;
+    for (i = 0; i < 18; i++)
+        cout << statMinAngle[i] << " ";
+    cout << endl;
 }
 
 int myObjType::org(OrTri ot)
@@ -417,4 +432,12 @@ void myObjType::printfnList()
 void myObjType::printOrTri(OrTri ot)
 {
     std::cout << org(ot) << "|" << dest(ot) << "|" << last(ot);
+}
+
+void myObjType::setVertexColor(int vIdx, float r, float g, float b)
+{
+    colorlist[vIdx][0] = r;
+    colorlist[vIdx][1] = g;
+    colorlist[vIdx][2] = b;
+    colorlist[vIdx][3] = 1.0f;
 }
