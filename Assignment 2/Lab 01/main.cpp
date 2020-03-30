@@ -1,5 +1,5 @@
 // CS3241Lab1.cpp : Defines the entry point for the console application.
-
+#pragma once
 
 #include <iostream>
 #include "mesh.h"
@@ -14,8 +14,6 @@
 #endif
 
 using namespace std;
-
-
 
 
 //#define M_PI 3.141592654
@@ -113,6 +111,7 @@ void keyboard (unsigned char key, int x, int y)
 	case 's':
 	case 'S':
 		m_Smooth = !m_Smooth;
+        myObj.smooth = m_Smooth;
 		break;
 	case 'h':
 	case 'H':

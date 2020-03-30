@@ -17,6 +17,7 @@ inline OrTri enext(OrTri ot) {
 inline OrTri sym(OrTri ot) { int v = ver(ot); return v < 3 ? ot + 3 : ot - 3; };
 
 class myObjType {
+
 	int vcount = 0;
 	int tcount = 0;
 
@@ -24,6 +25,7 @@ class myObjType {
 	int tlist[MAXT][3];      // triangle list
 	int fnlist[MAXT][6];     // fnext list
 	double nlist[MAXT][3];   // storing triangle normals
+    double vnlist[MAXT][3];  // Vertex Normal vectors list
     float colorlist[MAXT][4];   // colors list
     int triComponentNumber[MAXT];      // triangle list
 	
@@ -37,6 +39,8 @@ class myObjType {
 
 
 public:
+    bool smooth = false;
+
 	myObjType() { vcount = 0; tcount = 0; };
 	void readFile(char* filename);  // assumming file contains a manifold
 	void writeFile(char* filename);  

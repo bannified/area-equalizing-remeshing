@@ -46,8 +46,9 @@ void myObjType::draw() {
     {
         glBegin(GL_POLYGON);
         // uncomment the following after you computed the normals
-        glNormal3dv(nlist[i]);
+        if (!smooth) glNormal3dv(nlist[i]);
         for (int j = 0; j < 3; j++) {
+            if (smooth) glNormal3dv(vnlist[tlist[i][j]]);
             glMaterialfv(GL_FRONT, GL_AMBIENT, colorlist[tlist[i][j]]);
             glVertex3dv(vlist[tlist[i][j]]);
         }
@@ -291,6 +292,23 @@ void myObjType::readFile(char* filename)
             crossProd.normalize();
 
             crossProd.copyToArray(nlist[i]);
+        }
+    }
+
+    {
+        ScopedTimer timer("Vertex normal computation");
+
+        for (int i = 1; i <= vcount; i++) {
+            vector<int> tris = vertexToTriangles[i];
+            vec3 vNormal(0.0f, 0.0f, 0.0f);
+            for (int tri : tris) {
+                vNormal.x += nlist[tri][0];
+                vNormal.y += nlist[tri][1];
+                vNormal.z += nlist[tri][2];
+            }
+            vNormal /= tris.size();
+            vNormal.normalize();
+            vNormal.copyToArray(vnlist[i]);
         }
     }
 
