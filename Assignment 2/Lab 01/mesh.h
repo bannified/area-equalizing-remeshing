@@ -52,11 +52,23 @@ public:
     int last(OrTri ot);
 
 private:
+    void printVertexList();
     void printfnList();
+    void printTriList();
 
     void printOrTri(OrTri ot);
 
     void setVertexColor(int vIdx, float r, float g, float b);
 };
 
+enum class PropertyType : unsigned char {
+    POSITION_X,
+    POSITION_Y,
+    POSITION_Z,
+    NORMAL_X,
+    NORMAL_Y,
+    NORMAL_Z,
+    TEX_S,
+    TEX_T
+};
 

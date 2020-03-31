@@ -129,7 +129,13 @@ void keyboard (unsigned char key, int x, int y)
 	case '4':
 		current_object = key - '1';
 		break;
-
+    case 'r':
+    case 'R':
+        // Read .ply file format
+        cout << "Enter the filename you want to open:";
+        cin >> filename;
+        myObj.readFile(filename);
+        break;
 	case 'Q':
 	case 'q':
 		exit(0);
@@ -211,7 +217,7 @@ int main(int argc, char **argv)
 	glutKeyboardFunc(keyboard);
 	setupLighting();
 	glDisable(GL_CULL_FACE);
-	glEnable(GL_DEPTH_TEST); 
+	glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_TRUE);
 
     glMatrixMode(GL_PROJECTION);

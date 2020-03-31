@@ -10,6 +10,7 @@
 #endif
 
 #include "math.h"
+#include "limits"
 #include <algorithm>
 #include <iterator>
 #include <string>
@@ -28,6 +29,14 @@
 using namespace std;
 
 #include "vec3.h"
+
+const string gPlyElementString = "element ";
+const string gPlyVertexString = "vertex ";
+const string gPlyPropertyString = "property ";
+const string gPlyFaceString = "face ";
+const string gPlyFloatString = "float ";
+const string gPlayFloat32String = "float32 ";
+const string gPlayEndHeaderString = "end_header";
 
 void myObjType::draw() {
 
@@ -95,6 +104,9 @@ void myObjType::readFile(char* filename)
         exit(1);
     }
 
+    std::string fn(filename);
+    std::string ext = fn.substr(fn.find_last_of('.'));
+
     string line;
     int i, j;
     bool firstVertex = 1;
@@ -102,51 +114,130 @@ void myObjType::readFile(char* filename)
     {
         ScopedTimer timer("File parsing");
 
-        while (getline(inFile, line))
-        {
-            if ((line[0] == 'v' || line[0] == 'f') && line[1] == ' ')
+        if (ext == ".obj") {
+            while (getline(inFile, line))
             {
-                if (line[0] == 'v')
+                if ((line[0] == 'v' || line[0] == 'f') && line[1] == ' ')
                 {
-                    vcount++;
-                    i = 1;
-                    const char* linec = line.data();
-                    for (int k = 0; k < 3; k++) { // k is 0,1,2 for x,y,z
-                        while (linec[i] == ' ') i++;
-                        j = i;
-                        while (linec[j] != ' ') j++;
-                        currCood = vlist[vcount][k] = atof(line.substr(i, j - i).c_str());
-                        if (firstVertex)
-                            lmin[k] = lmax[k] = currCood;
-                        else {
-                            if (lmin[k] > currCood)
-                                lmin[k] = currCood;
-                            if (lmax[k] < currCood)
-                                lmax[k] = currCood;
+                    if (line[0] == 'v')
+                    {
+                        vcount++;
+                        i = 1;
+                        const char* linec = line.data();
+                        for (int k = 0; k < 3; k++) { // k is 0,1,2 for x,y,z
+                            while (linec[i] == ' ') i++;
+                            j = i;
+                            while (linec[j] != ' ') j++;
+                            currCood = vlist[vcount][k] = atof(line.substr(i, j - i).c_str());
+                            if (firstVertex)
+                                lmin[k] = lmax[k] = currCood;
+                            else {
+                                if (lmin[k] > currCood)
+                                    lmin[k] = currCood;
+                                if (lmax[k] < currCood)
+                                    lmax[k] = currCood;
+                            }
+                            i = j;
                         }
-                        i = j;
+
+                        firstVertex = 0;
                     }
+                    if (line[0] == 'f')
+                    {
+                        tcount++;
+                        i = 1;
+                        const char* linec = line.data();
+                        for (int k = 0; k < 3; k++) {
+                            while (linec[i] == ' ') i++;
+                            j = i;
+                            while (linec[j] != ' ' && linec[j] != '\\') j++;
+                            tlist[tcount][k] = atof(line.substr(i, j - i).c_str());
+                            i = j;
+                            while (linec[j] != ' ') j++;
 
-                    firstVertex = 0;
-                }
-                if (line[0] == 'f')
-                {
-                    tcount++;
-                    i = 1;
-                    const char* linec = line.data();
-                    for (int k = 0; k < 3; k++) {
-                        while (linec[i] == ' ') i++;
-                        j = i;
-                        while (linec[j] != ' ' && linec[j] != '\\') j++;
-                        tlist[tcount][k] = atof(line.substr(i, j - i).c_str());
-                        i = j;
-                        while (linec[j] != ' ') j++;
-
+                        }
                     }
                 }
             }
+        } else if (ext == ".ply") {
+            // parse .ply
+
+            int numVertexElements = 0;
+            int numVertices = 0;
+            int numFaces = 0;
+
+            // header
+            while (getline(inFile, line)) {
+                size_t pos = line.find(gPlayEndHeaderString);
+                if (pos != string::npos) {
+                    break; // header ended
+                }
+
+                // handling elements
+                pos = line.find(gPlyElementString);
+                if (pos != string::npos) {
+                    line = line.substr(pos + gPlyElementString.size());
+
+                    // find num vertices
+                    pos = line.find(gPlyVertexString);
+                    if (pos != string::npos) {
+                        numVertices = atoi(line.substr(pos + gPlyVertexString.size()).c_str());
+                        continue;
+                    }
+
+                    // find num faces/triangles
+                    pos = line.find(gPlyFaceString);
+                    if (pos != string::npos) {
+                        numFaces = atoi(line.substr(pos + gPlyFaceString.size()).c_str());
+                        continue;
+                    }
+                }
+            }
+
+            vcount = numVertices;
+            for (int i = 1; i <= numVertices; i++) {
+                getline(inFile, line);
+                for (int j = 0; j < 3; j++) {
+                    size_t pos = line.find(' ');
+                    currCood = vlist[i][j] = atof(line.substr(0, pos).c_str());
+                    if (vlist[i][j] == 0.0f) {
+                        currCood = vlist[i][j] = numeric_limits<double>::epsilon();
+                    }
+                    line = line.substr(pos + 1);
+
+                    if (firstVertex)
+                        lmin[j] = lmax[j] = currCood;
+                    else {
+                        if (lmin[j] > currCood)
+                            lmin[j] = currCood;
+                        if (lmax[j] < currCood)
+                            lmax[j] = currCood;
+                    }
+                }
+                firstVertex = 0;
+            }
+
+            tcount = numFaces;
+            for (int i = 1; i <= numFaces; i++) {
+                getline(inFile, line);
+                line = line.substr(2);
+                for (int j = 0; j < 3; j++) {
+                    size_t pos = line.find(' ');
+                    int intendedIndex = atoi(line.substr(0, pos).c_str()) + 1;
+                    tlist[i][j] = intendedIndex;
+                    line = line.substr(pos + 1);
+                }
+            }
+        }
+        else {
+            cout << "Invalid file format given, quitting..." << endl;
+            exit(1);
         }
     }
+
+    //printVertexList();
+
+    //printTriList();
 
     // Color
     {
@@ -430,6 +521,16 @@ int myObjType::last(OrTri ot)
     }
 }
 
+void myObjType::printVertexList()
+{
+    for (int i = 1; i <= vcount; i++) {
+        double* tri = vlist[i];
+
+        std::cout << "Triangle " << i << ": " << tri[0] << "|" << tri[1] << "|" << tri[2];
+        std::cout << endl;
+    }
+}
+
 void myObjType::printfnList()
 {
     for (int i = 1; i <= tcount; i++) {
@@ -444,6 +545,17 @@ void myObjType::printfnList()
         }
 
         std::cout << endl;
+    }
+}
+
+void myObjType::printTriList()
+{
+    for (int i = 1; i <= tcount; i++) {
+        int* tri = tlist[i];
+
+        std::cout << "Triangle " << i << "(";
+        printOrTri(makeOrTri(i, 0));
+        std::cout << ")";
     }
 }
 
