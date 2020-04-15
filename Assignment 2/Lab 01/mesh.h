@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include "vec3.h"
+#include "Edge.h"
 
 // maximum number of vertices and triangles
 #define MAXV 1000000
@@ -49,8 +50,12 @@ class myObjType {
     unordered_set<int> unassignedVerts;
 
     /* todo: For remeshing */
+
+    unordered_set<Edge> edgeSet;    // Set of all edges
     int vertexDegreeList[MAXV];     // keeps track of the degree of every vertex. 
                                     // if degree is -1, then vertex does not exist.
+    unordered_map<int, unordered_set<int>> vertexLinks; // Lk(v), where v is a vertex
+    unordered_map<Edge, unordered_set<int>> edgeLinks; // Lk(e), where e is an edge.
     
     std::unordered_map<int, std::vector<int> > vertexToTriangles;
 

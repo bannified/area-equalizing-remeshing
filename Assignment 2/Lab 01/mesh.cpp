@@ -250,6 +250,22 @@ void myObjType::readFile(char* filename)
             ++vertexDegreeList[vertices[0]];
             ++vertexDegreeList[vertices[1]];
             ++vertexDegreeList[vertices[2]];
+
+            vertexLinks[vertices[0]].emplace(vertices[1]);
+            vertexLinks[vertices[0]].emplace(vertices[2]);
+            vertexLinks[vertices[1]].emplace(vertices[0]);
+            vertexLinks[vertices[1]].emplace(vertices[2]);
+            vertexLinks[vertices[2]].emplace(vertices[1]);
+            vertexLinks[vertices[2]].emplace(vertices[2]);
+
+            // Edges
+            edgeSet.emplace(vertices[0], vertices[1]);
+            edgeSet.emplace(vertices[1], vertices[2]);
+            edgeSet.emplace(vertices[2], vertices[0]);
+
+            edgeLinks[{vertices[0], vertices[1]}].emplace(vertices[2]);
+            edgeLinks[{vertices[1], vertices[2]}].emplace(vertices[0]);
+            edgeLinks[{vertices[2], vertices[0]}].emplace(vertices[1]);
         }
     }
 
