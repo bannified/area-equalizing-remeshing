@@ -118,6 +118,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Edge.h" />
     <ClInclude Include="mesh.h" />
     <ClInclude Include="ScopedTimer.h" />
     <ClInclude Include="vec3.h" />

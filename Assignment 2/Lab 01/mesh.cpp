@@ -18,7 +18,6 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
-#include "mesh.h"
 #include "ScopedTimer.h"
 #include <map>
 #include <queue>
@@ -27,8 +26,6 @@
 #include <utility>
 #include <unordered_map>
 using namespace std;
-
-#include "vec3.h"
 
 const string gPlyElementString = "element ";
 const string gPlyVertexString = "vertex ";
@@ -235,21 +232,8 @@ void myObjType::readFile(char* filename)
         }
     }
 
-    //printVertexList();
+    initializeVertexColors();
 
-    //printTriList();
-
-    // Color
-    {
-        for (int i = 1; i <= tcount; i++) {
-            for (int j = 1; j <= 3; j++) {
-                colorlist[i][j] = 0.5f;
-            }
-            colorlist[i][3] = 1.0f;
-        }
-    }
-
-    unordered_map<int, vector<int> > vertexToTriangles;
     {
         ScopedTimer timer("vertex to Triangles");
         for (int i = 1; i <= tcount; i++) {
@@ -260,160 +244,179 @@ void myObjType::readFile(char* filename)
         }
     }
 
-    {
-        ScopedTimer timer("fnext Population");
-
-        std::fill(fnlist[0], fnlist[0] + MAXT * NUM_FNEXT, 0);
-
-        // Lab 2 (main): Populating fnext list
-        for (int i = 1; i <= tcount; i++) {
-            //std::cout << "Populating fnext for triangle: " << i << "/" << tcount << std::endl;
-            int* vertices = tlist[i];
-            // Fill fnext list for face i.
-            for (int k = 0; k < NUM_FNEXT; k++) {
-                if (fnlist[i][k] != 0) {
-                    // already filled.
-                    continue;
-                }
-
-                OrTri ot = makeOrTri(i, k);
-                int origin = org(ot);
-                int destination = dest(ot);
-
-                int fnextTriIdx = 0;
-
-                vector<int> orgVertexTris = vertexToTriangles[origin];
-                for (int tri : orgVertexTris) {
-                    if (tri == i) continue;
-                    int* ovtVerts = tlist[tri];
-                    for (int v = 0; v < 3; v++) {
-                        if (ovtVerts[v] == destination) {
-                            fnextTriIdx = tri;
-                            break;
-                        }
-                    }
-                    if (fnextTriIdx != 0) break;
-                }
-
-                if (fnextTriIdx == 0) {
-                    // no triangle found for this fnext
-                    fnlist[i][k] = ot;
-
-                    setVertexColor(origin, 1.0f, 0.0f, 0.0f);
-                    setVertexColor(destination, 1.0f, 0.0f, 0.0f);
-
-                    continue;
-                }
-
-                // Finding triangle version
-                for (int version = 0; version < 6; version++) {
-                    OrTri fnextOt = makeOrTri(fnextTriIdx, version);
-                    if (dest(fnextOt) == destination && org(fnextOt) == origin) {
-                        fnlist[i][k] = fnextOt;
-                        fnlist[fnextTriIdx][version] = ot;
-                        break;
-                    }
-                }
-            }
-        }
-    }
+    computeFNext();
 
     //printfnList();
 
     // Lab 2 Optional: Computing number of components
-    {
-        ScopedTimer timer("Computing number of components");
+    computeNumComponents();
+    cout << "Number of components: " << numComponents << endl;
 
-        numComponents = 0;
-        int unvisitedTCount = tcount;
-        bool visitedTris[MAXT] = { 0 };
+    computeTriangleNormals();
 
-        while (unvisitedTCount > 0) {
-            int startingTri = 0;
-            for (int i = 1; i <= tcount; i++) {
-                if (!visitedTris[i]) {
-                    startingTri = i;
-                    break;
-                }
-            }
-
-            ++numComponents;
-
-            // start BFS, ignoring nodes already at frontier
-            std::queue<int> frontier;
-            frontier.push(startingTri);
-
-            while (!frontier.empty()) {
-                int curr = frontier.front();
-                frontier.pop();
-
-                if (visitedTris[curr]) {
-                    continue;
-                }
-
-                int* fnexts = fnlist[curr];
-                for (int f = 0; f < NUM_FNEXT; f++) {
-                    int index = idx(fnexts[f]);
-                    if (index > 0 && !visitedTris[index]) {
-                        frontier.push(index);
-                    }
-                }
-                triComponentNumber[curr] = numComponents;
-                visitedTris[curr] = true;
-                --unvisitedTCount;
-                //std::cout << "triangles left: " << unvisitedTCount << "/" << tcount << std::endl;
-            }
-        }
-    }
-
-    std::cout << "Number of components: " << numComponents << std::endl;
-
-    {
-        ScopedTimer timer("Normal computation");
-
-        for (int i = 1; i <= tcount; i++) {
-            int* vertices = tlist[i];
-            vec3 v0 = vec3(vlist[vertices[0]][0], vlist[vertices[0]][1], vlist[vertices[0]][2]);
-            vec3 v1 = vec3(vlist[vertices[1]][0], vlist[vertices[1]][1], vlist[vertices[1]][2]);
-            vec3 v2 = vec3(vlist[vertices[2]][0], vlist[vertices[2]][1], vlist[vertices[2]][2]);
-
-            vec3 v01 = v1 - v0;
-            vec3 v02 = v2 - v0;
-            vec3 crossProd = cross(v01, v02);
-            crossProd.normalize();
-
-            crossProd.copyToArray(nlist[i]);
-        }
-    }
-
-    {
-        ScopedTimer timer("Vertex normal computation");
-
-        for (int i = 1; i <= vcount; i++) {
-            vector<int> tris = vertexToTriangles[i];
-            vec3 vNormal(0.0f, 0.0f, 0.0f);
-            for (int tri : tris) {
-                vNormal.x += nlist[tri][0];
-                vNormal.y += nlist[tri][1];
-                vNormal.z += nlist[tri][2];
-            }
-            vNormal /= tris.size();
-            vNormal.normalize();
-            vNormal.copyToArray(vnlist[i]);
-        }
-    }
+    computeVertexNormals();
 
     cout << "No. of vertices: " << vcount << endl;
     cout << "No. of triangles: " << tcount << endl;
-    {
-        ScopedTimer timer("Stats computation");
-        computeStat();
+    
+    computeStat();
+}
+
+void myObjType::computeVertexNormals()
+{
+    ScopedTimer timer("Vertex normal computation");
+
+    for (int i = 1; i <= vcount; i++) {
+        vector<int> tris = vertexToTriangles[i];
+        vec3 vNormal(0.0f, 0.0f, 0.0f);
+        for (int tri : tris) {
+            vNormal.x += nlist[tri][0];
+            vNormal.y += nlist[tri][1];
+            vNormal.z += nlist[tri][2];
+        }
+        vNormal /= tris.size();
+        vNormal.normalize();
+        vNormal.copyToArray(vnlist[i]);
     }
 }
 
+void myObjType::computeTriangleNormals()
+{
+    ScopedTimer timer("Normal computation");
+
+    for (int i = 1; i <= tcount; i++) {
+        int* vertices = tlist[i];
+        vec3 v0 = vec3(vlist[vertices[0]][0], vlist[vertices[0]][1], vlist[vertices[0]][2]);
+        vec3 v1 = vec3(vlist[vertices[1]][0], vlist[vertices[1]][1], vlist[vertices[1]][2]);
+        vec3 v2 = vec3(vlist[vertices[2]][0], vlist[vertices[2]][1], vlist[vertices[2]][2]);
+
+        vec3 v01 = v1 - v0;
+        vec3 v02 = v2 - v0;
+        vec3 crossProd = cross(v01, v02);
+        crossProd.normalize();
+
+        crossProd.copyToArray(nlist[i]);
+    }
+}
+
+void myObjType::initializeVertexColors()
+{
+    for (int i = 1; i <= tcount; i++) {
+        for (int j = 1; j <= 3; j++) {
+            colorlist[i][j] = 0.5f;
+        }
+        colorlist[i][3] = 1.0f;
+    }
+}
+
+void myObjType::computeFNext()
+{
+    ScopedTimer timer("fnext Population");
+
+    std::fill(fnlist[0], fnlist[0] + MAXT * NUM_FNEXT, 0);
+
+    // Lab 2 (main): Populating fnext list
+    for (int i = 1; i <= tcount; i++) {
+        //std::cout << "Populating fnext for triangle: " << i << "/" << tcount << std::endl;
+        int* vertices = tlist[i];
+        // Fill fnext list for face i.
+        for (int k = 0; k < NUM_FNEXT; k++) {
+            if (fnlist[i][k] != 0) {
+                // already filled.
+                continue;
+            }
+
+            OrTri ot = makeOrTri(i, k);
+            int origin = org(ot);
+            int destination = dest(ot);
+
+            int fnextTriIdx = 0;
+
+            vector<int> orgVertexTris = vertexToTriangles[origin];
+            for (int tri : orgVertexTris) {
+                if (tri == i) continue;
+                int* ovtVerts = tlist[tri];
+                for (int v = 0; v < 3; v++) {
+                    if (ovtVerts[v] == destination) {
+                        fnextTriIdx = tri;
+                        break;
+                    }
+                }
+                if (fnextTriIdx != 0) break;
+            }
+
+            if (fnextTriIdx == 0) {
+                // no triangle found for this fnext
+                fnlist[i][k] = ot;
+
+                setVertexColor(origin, 1.0f, 0.0f, 0.0f);
+                setVertexColor(destination, 1.0f, 0.0f, 0.0f);
+
+                continue;
+            }
+
+            // Finding triangle version
+            for (int version = 0; version < 6; version++) {
+                OrTri fnextOt = makeOrTri(fnextTriIdx, version);
+                if (dest(fnextOt) == destination && org(fnextOt) == origin) {
+                    fnlist[i][k] = fnextOt;
+                    fnlist[fnextTriIdx][version] = ot;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void myObjType::computeNumComponents()
+{
+    ScopedTimer timer("Computing number of components");
+
+    numComponents = 0;
+    int unvisitedTCount = tcount;
+    bool visitedTris[MAXT] = { 0 };
+
+    while (unvisitedTCount > 0) {
+        int startingTri = 0;
+        for (int i = 1; i <= tcount; i++) {
+            if (!visitedTris[i]) {
+                startingTri = i;
+                break;
+            }
+        }
+
+        ++numComponents;
+
+        // start BFS, ignoring nodes already at frontier
+        std::queue<int> frontier;
+        frontier.push(startingTri);
+
+        while (!frontier.empty()) {
+            int curr = frontier.front();
+            frontier.pop();
+
+            if (visitedTris[curr]) {
+                continue;
+            }
+
+            int* fnexts = fnlist[curr];
+            for (int f = 0; f < NUM_FNEXT; f++) {
+                int index = idx(fnexts[f]);
+                if (index > 0 && !visitedTris[index]) {
+                    frontier.push(index);
+                }
+            }
+            triComponentNumber[curr] = numComponents;
+            visitedTris[curr] = true;
+            --unvisitedTCount;
+            //std::cout << "triangles left: " << unvisitedTCount << "/" << tcount << std::endl;
+        }
+    }
+}
 
 void myObjType::computeStat()
 {
+    ScopedTimer timer("Stats computation");
     int i;
     double minAngle = 180;
     double maxAngle = 0;
@@ -562,6 +565,25 @@ void myObjType::printTriList()
 void myObjType::printOrTri(OrTri ot)
 {
     std::cout << org(ot) << "|" << dest(ot) << "|" << last(ot);
+}
+
+void myObjType::performRemeshing(int numIterations)
+{
+    for (int itNum = 0; itNum < numIterations; itNum++) {
+
+    }
+
+
+}
+
+void myObjType::splitAllLongEdges(float threshold)
+{
+
+}
+
+void myObjType::mergeAllShortEdges(float threshold)
+{
+
 }
 
 void myObjType::setVertexColor(int vIdx, float r, float g, float b)

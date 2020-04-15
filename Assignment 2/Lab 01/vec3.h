@@ -97,11 +97,11 @@ inline vec3 operator/(vec3 lhs, double rhs) {
     return lhs;
 }
 
-double dot(const vec3& a, const vec3& b) {
+inline double dot(const vec3& a, const vec3& b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-vec3 cross(const vec3& a, const vec3& b) {
+inline vec3 cross(const vec3& a, const vec3& b) {
     return vec3(
         a.y * b.z - b.y * a.z,
         -(a.x * b.z - b.x * a.z),
@@ -109,26 +109,24 @@ vec3 cross(const vec3& a, const vec3& b) {
     );
 }
 
-double rad2Deg(double angleRad) {
+inline double rad2Deg(double angleRad) {
     return angleRad * 180.0f / M_PI;
 }
 
-double deg2Rad(double angleDeg) {
+inline double deg2Rad(double angleDeg) {
     return angleDeg * M_PI / 180.0f;
 }
 
-double magnitudeSq(const vec3& v) {
+inline double magnitudeSq(const vec3& v) {
     return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
-double magnitude(const vec3& v) {
+inline double magnitude(const vec3& v) {
     return sqrt(magnitudeSq(v));
 }
 
-vec3 normalize(const vec3& v) {
+inline vec3 normalize(const vec3& v) {
     double mag = magnitude(v);
     return v / mag;
 }
-
-
 
