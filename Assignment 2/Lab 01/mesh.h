@@ -82,13 +82,18 @@ public:
     int last(OrTri ot);
 
     //// Triangles
-    //int AddTriangle(int vertices[3]); // returns the index of the triangle added
-    //bool AddTriangleAtIndex(int index, int vertices[3]); // returns true if successful
-    //void RemoveTriangleAtIndex(int index);
+    bool isValidTriangle(int index);
+    int AddTriangle(int vertices[3]); // returns the index of the triangle added
+    bool AddTriangleAtIndex(int index, int vertices[3]); // returns true if successful
+    void RemoveTriangleAtIndex(int index);
 
-    //// Vertices
-    //void AddVertexAtIndex(int index, vec3 position);
-    //void RemoveVertex(int index);
+    // Vertices
+    bool isValidVertex(int index);
+    int addVertex(vec3 position); // returns the index of the vertex added
+    void setVertexPosition(int index, vec3 position);
+    void removeVertex(int index);
+
+    bool IsEdgeContractable(Edge edge);
 
 private:
     void printVertexList();

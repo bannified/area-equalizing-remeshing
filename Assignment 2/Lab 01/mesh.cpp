@@ -35,6 +35,17 @@ const string gPlyFloatString = "float ";
 const string gPlayFloat32String = "float32 ";
 const string gPlayEndHeaderString = "end_header";
 
+template<class T>
+ostream& operator<<(ostream& os, const unordered_set<T> uos) {
+    os << "[";
+    for (auto it = uos.begin(); it != uos.end(); ++it) {
+        os << *it << ", ";
+    }
+    os << "]";
+
+    return os;
+}
+
 void myObjType::draw() {
 
     glEnable(GL_LIGHTING);
@@ -50,6 +61,7 @@ void myObjType::draw() {
     glTranslated(-(lmin[0] + lmax[0]) / 2.0, -(lmin[1] + lmax[1]) / 2.0, -(lmin[2] + lmax[2]) / 2.0);
     for (int i = 1; i <= tcount; i++)
     {
+        if (!isValidTriangle(i)) continue;
         glBegin(GL_POLYGON);
         // uncomment the following after you computed the normals
         if (!smooth) glNormal3dv(nlist[i]);
@@ -247,6 +259,7 @@ void myObjType::readFile(char* filename)
             vertexToTriangles[vertices[1]].emplace_back(i);
             vertexToTriangles[vertices[2]].emplace_back(i);
 
+            // todo: move these to be computed when we wanna do remeshing.
             ++vertexDegreeList[vertices[0]];
             ++vertexDegreeList[vertices[1]];
             ++vertexDegreeList[vertices[2]];
@@ -281,10 +294,14 @@ void myObjType::readFile(char* filename)
 
     computeVertexNormals();
 
-    cout << "No. of vertices: " << vcount << endl;
-    cout << "No. of triangles: " << tcount << endl;
+    cout << "No. of vertices: " << vcount - unassignedVerts.size() << endl;
+    cout << "No. of triangles: " << tcount - unassignedTris.size() << endl;
     
     computeStat();
+
+    for (auto edgeIt = edgeSet.begin(); edgeIt != edgeSet.end(); ++edgeIt) {
+        IsEdgeContractable(*edgeIt);
+    }
 }
 
 void myObjType::computeVertexNormals()
@@ -547,6 +564,217 @@ int myObjType::last(OrTri ot)
     case 3:
         return tri[2];
     }
+}
+
+bool myObjType::isValidTriangle(int index)
+{
+    if (unassignedTris.count(index) == 1) return false;
+    int* vertices = tlist[index];
+    return !(vertices[0] == 0 || vertices[1] == 0 || vertices[2] == 0);
+}
+
+int myObjType::AddTriangle(int vertices[3])
+{
+    int index;
+    if (unassignedTris.size() > 0) {
+        index = *unassignedTris.begin();
+        unassignedTris.erase(unassignedTris.begin());
+    }
+    else {
+        ++tcount;
+        index = tcount;
+    }
+
+    tlist[index][0] = vertices[0];
+    tlist[index][1] = vertices[1];
+    tlist[index][2] = vertices[2];
+
+    ++vertexDegreeList[vertices[0]];
+    ++vertexDegreeList[vertices[1]];
+    ++vertexDegreeList[vertices[2]];
+
+    vertexLinks[vertices[0]].emplace(vertices[1]);
+    vertexLinks[vertices[0]].emplace(vertices[2]);
+    vertexLinks[vertices[1]].emplace(vertices[0]);
+    vertexLinks[vertices[1]].emplace(vertices[2]);
+    vertexLinks[vertices[2]].emplace(vertices[1]);
+    vertexLinks[vertices[2]].emplace(vertices[2]);
+
+    // Edges
+    edgeSet.emplace(vertices[0], vertices[1]);
+    edgeSet.emplace(vertices[1], vertices[2]);
+    edgeSet.emplace(vertices[2], vertices[0]);
+
+    edgeLinks[{vertices[0], vertices[1]}].emplace(vertices[2]);
+    edgeLinks[{vertices[1], vertices[2]}].emplace(vertices[0]);
+    edgeLinks[{vertices[2], vertices[0]}].emplace(vertices[1]);
+
+    return index;
+}
+
+bool myObjType::AddTriangleAtIndex(int index, int vertices[3])
+{
+    auto it = unassignedTris.find(index);
+    if (it == unassignedTris.end()) {
+        cerr << "Trying to add a triangle at an invalid index " << index << endl;
+        return false;
+    }
+
+    unassignedTris.erase(it);
+
+    tlist[index][0] = vertices[0];
+    tlist[index][1] = vertices[1];
+    tlist[index][2] = vertices[2];
+
+    tlist[index][0] = vertices[0];
+    tlist[index][1] = vertices[1];
+    tlist[index][2] = vertices[2];
+
+    ++vertexDegreeList[vertices[0]];
+    ++vertexDegreeList[vertices[1]];
+    ++vertexDegreeList[vertices[2]];
+
+    vertexLinks[vertices[0]].emplace(vertices[1]);
+    vertexLinks[vertices[0]].emplace(vertices[2]);
+    vertexLinks[vertices[1]].emplace(vertices[0]);
+    vertexLinks[vertices[1]].emplace(vertices[2]);
+    vertexLinks[vertices[2]].emplace(vertices[1]);
+    vertexLinks[vertices[2]].emplace(vertices[2]);
+
+    // Edges
+    edgeSet.emplace(vertices[0], vertices[1]);
+    edgeSet.emplace(vertices[1], vertices[2]);
+    edgeSet.emplace(vertices[2], vertices[0]);
+
+    edgeLinks[{vertices[0], vertices[1]}].emplace(vertices[2]);
+    edgeLinks[{vertices[1], vertices[2]}].emplace(vertices[0]);
+    edgeLinks[{vertices[2], vertices[0]}].emplace(vertices[1]);
+
+    return true;
+}
+
+void myObjType::RemoveTriangleAtIndex(int index)
+{
+    if (!isValidTriangle(index)) {
+        cerr << "Tried removing an invalid triangle at index " << index << endl;
+        return;
+    }
+
+    tlist[index][0] = 0;
+    tlist[index][1] = 0;
+    tlist[index][2] = 0;
+
+    unassignedTris.emplace(index);
+
+    int* vertices = tlist[index];
+
+    --vertexDegreeList[vertices[0]];
+    --vertexDegreeList[vertices[1]];
+    --vertexDegreeList[vertices[2]];
+
+    vertexLinks[vertices[0]].erase(vertices[1]);
+    vertexLinks[vertices[0]].erase(vertices[2]);
+    vertexLinks[vertices[1]].erase(vertices[0]);
+    vertexLinks[vertices[1]].erase(vertices[2]);
+    vertexLinks[vertices[2]].erase(vertices[1]);
+    vertexLinks[vertices[2]].erase(vertices[2]);
+
+    // Edges
+    edgeSet.erase({ vertices[0], vertices[1] });
+    edgeSet.erase({vertices[1], vertices[2] });
+    edgeSet.erase({ vertices[2], vertices[0] });
+
+    edgeLinks[{vertices[0], vertices[1]}].erase(vertices[2]);
+    edgeLinks[{vertices[1], vertices[2]}].erase(vertices[0]);
+    edgeLinks[{vertices[2], vertices[0]}].erase(vertices[1]);
+}
+
+bool myObjType::isValidVertex(int index)
+{
+    return !(index > vcount || unassignedVerts.count(index) > 0);
+}
+
+int myObjType::addVertex(vec3 position)
+{
+    int index;
+    if (unassignedVerts.size() > 0) {
+        index = *unassignedVerts.begin();
+        unassignedVerts.erase(unassignedVerts.begin());
+    }
+    else {
+        ++vcount;
+        index = vcount;
+    }
+
+    position.copyToArray(vlist[index]);
+    return index;
+}
+
+void myObjType::setVertexPosition(int index, vec3 position)
+{
+    if (!isValidVertex(index)) {
+        cerr << "Attempted to set position of vertex that does not exist: " << index << endl;
+        return;
+    }
+
+    position.copyToArray(vlist[index]);
+}
+
+void myObjType::removeVertex(int index)
+{
+    if (!isValidVertex(index)) {
+        cerr << "Attempted to remove vertex that does not exist: " << index << endl;
+        return;
+    }
+
+    unassignedVerts.emplace(index);
+}
+
+bool myObjType::IsEdgeContractable(Edge edge)
+{
+    cout << "--------- Checking if " << edge.ToString() << " is contractable... ---------" << endl;
+
+    int v1 = edge.v1;
+    int v2 = edge.v2;
+
+    auto edgeLinkIt = edgeLinks.find(edge);
+    if (edgeLinkIt == edgeLinks.end()) return false;
+    unordered_set<int> linkEdge = edgeLinkIt->second;
+
+    cout << "Edge's Link: " << linkEdge << endl;
+
+    auto v1LinkIt = vertexLinks.find(v1);
+    if (v1LinkIt == vertexLinks.end()) return false;
+    unordered_set<int> linkV1 = v1LinkIt->second;
+
+    cout << "Vertex " << v1 << "'s Link: " << linkV1 << endl;
+
+    auto v2LinkIt = vertexLinks.find(v2);
+    if (v2LinkIt == vertexLinks.end()) return false;
+    unordered_set<int> linkV2 = v2LinkIt->second;
+
+    cout << "Vertex " << v2 << "'s Link: " << linkV2 << endl;
+
+    unordered_set<int> intersect;
+    for (int lk : linkV1)
+    {
+        if (linkV2.count(lk) != 0) {
+            intersect.emplace(lk);
+        }
+    }
+
+    cout << "Intersect's Link: " << intersect << endl;
+
+    // check if intersect == edge's link
+    if (linkEdge.size() != intersect.size()) return false;
+
+    for (int lk : linkEdge) {
+        if (intersect.count(lk) == 0) return false;
+    }
+
+    cout << "cxb" << endl;
+
+    return true;
 }
 
 void myObjType::printVertexList()

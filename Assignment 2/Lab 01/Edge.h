@@ -2,6 +2,7 @@
 
 #include <xhash>
 #include <vector>
+#include <string>
 
 class Edge {
 
@@ -15,6 +16,9 @@ public:
 
     Edge() = delete;
 
+    inline std::string ToString() {
+        return "Edge [" + std::to_string(v1) + ", " + std::to_string(v2) + "]";
+    }
 };
 
 template <>
