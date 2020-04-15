@@ -235,12 +235,21 @@ void myObjType::readFile(char* filename)
     initializeVertexColors();
 
     {
-        ScopedTimer timer("vertex to Triangles");
+        ScopedTimer timer("vertex to Triangles map, and vertex degrees list");
+
+        // reset vertexDegreeList
+        std::fill_n(vertexDegreeList, vcount + 1, 0); 
+        std::fill_n(vertexDegreeList + vcount + 1, MAXV - (vcount + 1), -1); // non-existant vertices 
+
         for (int i = 1; i <= tcount; i++) {
             int* vertices = tlist[i];
             vertexToTriangles[vertices[0]].emplace_back(i);
             vertexToTriangles[vertices[1]].emplace_back(i);
             vertexToTriangles[vertices[2]].emplace_back(i);
+
+            ++vertexDegreeList[vertices[0]];
+            ++vertexDegreeList[vertices[1]];
+            ++vertexDegreeList[vertices[2]];
         }
     }
 

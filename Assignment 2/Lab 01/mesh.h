@@ -49,6 +49,8 @@ class myObjType {
     unordered_set<int> unassignedVerts;
 
     /* todo: For remeshing */
+    int vertexDegreeList[MAXV];     // keeps track of the degree of every vertex. 
+                                    // if degree is -1, then vertex does not exist.
     
     std::unordered_map<int, std::vector<int> > vertexToTriangles;
 
