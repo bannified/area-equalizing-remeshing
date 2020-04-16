@@ -136,6 +136,10 @@ void keyboard (unsigned char key, int x, int y)
         cin >> filename;
         myObj.readFile(filename);
         break;
+    case 'g':
+    case 'G':
+        myObj.performRemeshing(1);
+        break;
 	case 'Q':
 	case 'q':
 		exit(0);
@@ -200,6 +204,7 @@ int main(int argc, char **argv)
 	cout << "W: Draw Wireframe"<<endl;
 	cout << "P: Draw Polygon"<<endl;
 	cout << "V: Draw Vertices"<<endl;
+    cout << "G: Start Area-Equalizing Remeshing" << endl;
 	cout << "Q: Quit" <<endl<< endl;
 
 	cout << "Left mouse click and drag: rotate the object"<<endl;

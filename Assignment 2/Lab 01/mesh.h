@@ -57,7 +57,7 @@ class myObjType {
     unordered_map<int, unordered_set<int>> vertexLinks; // Lk(v), where v is a vertex
     unordered_map<Edge, unordered_set<int>> edgeLinks; // Lk(e), where e is an edge.
     
-    std::unordered_map<int, std::vector<int> > vertexToTriangles;
+    std::unordered_map<int, std::unordered_set<int> > vertexToTriangles;
 
 public:
     bool smooth = false;
@@ -91,9 +91,13 @@ public:
     bool isValidVertex(int index);
     int addVertex(vec3 position); // returns the index of the vertex added
     void setVertexPosition(int index, vec3 position);
-    void removeVertex(int index);
+    void removeVertexOnly(int index); // plainly just removes the vertex
 
     bool IsEdgeContractable(Edge edge);
+
+    void ContractEdge(Edge edge);
+    void InsertEdgeOnly(Edge edge);
+    void RemoveEdgeOnly(Edge edge);
 
 private:
     void printVertexList();
@@ -102,6 +106,7 @@ private:
 
     void printOrTri(OrTri ot);
 
+public:
     /**
      * Perform Area-Equalizing Remeshing.
      * Based on the paper: “A Remeshing Approach to Multiresolution Modeling” by Botsch & Kobbelt
@@ -114,7 +119,7 @@ private:
      * @param numIterations The number of iterations of remeshing to run
      */
     void performRemeshing(int numIterations);
-
+private:
     /**
      * Step 1 of the Remeshing algorithm.
      *

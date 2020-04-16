@@ -16,7 +16,7 @@ public:
 
     Edge() = delete;
 
-    inline std::string ToString() {
+    inline std::string ToString() const {
         return "Edge [" + std::to_string(v1) + ", " + std::to_string(v2) + "]";
     }
 };

@@ -255,9 +255,9 @@ void myObjType::readFile(char* filename)
 
         for (int i = 1; i <= tcount; i++) {
             int* vertices = tlist[i];
-            vertexToTriangles[vertices[0]].emplace_back(i);
-            vertexToTriangles[vertices[1]].emplace_back(i);
-            vertexToTriangles[vertices[2]].emplace_back(i);
+            vertexToTriangles[vertices[0]].emplace(i);
+            vertexToTriangles[vertices[1]].emplace(i);
+            vertexToTriangles[vertices[2]].emplace(i);
 
             // todo: move these to be computed when we wanna do remeshing.
             ++vertexDegreeList[vertices[0]];
@@ -272,6 +272,10 @@ void myObjType::readFile(char* filename)
             vertexLinks[vertices[2]].emplace(vertices[2]);
 
             // Edges
+            //InsertEdgeOnly({ vertices[0], vertices[1] });
+            //InsertEdgeOnly({ vertices[1], vertices[2] });
+            //InsertEdgeOnly({ vertices[2], vertices[0] });
+
             edgeSet.emplace(vertices[0], vertices[1]);
             edgeSet.emplace(vertices[1], vertices[2]);
             edgeSet.emplace(vertices[2], vertices[0]);
@@ -298,10 +302,6 @@ void myObjType::readFile(char* filename)
     cout << "No. of triangles: " << tcount - unassignedTris.size() << endl;
     
     computeStat();
-
-    for (auto edgeIt = edgeSet.begin(); edgeIt != edgeSet.end(); ++edgeIt) {
-        IsEdgeContractable(*edgeIt);
-    }
 }
 
 void myObjType::computeVertexNormals()
@@ -309,7 +309,7 @@ void myObjType::computeVertexNormals()
     ScopedTimer timer("Vertex normal computation");
 
     for (int i = 1; i <= vcount; i++) {
-        vector<int> tris = vertexToTriangles[i];
+        unordered_set<int> tris = vertexToTriangles[i];
         vec3 vNormal(0.0f, 0.0f, 0.0f);
         for (int tri : tris) {
             vNormal.x += nlist[tri][0];
@@ -374,7 +374,7 @@ void myObjType::computeFNext()
 
             int fnextTriIdx = 0;
 
-            vector<int> orgVertexTris = vertexToTriangles[origin];
+            unordered_set<int> orgVertexTris = vertexToTriangles[origin];
             for (int tri : orgVertexTris) {
                 if (tri == i) continue;
                 int* ovtVerts = tlist[tri];
@@ -616,11 +616,15 @@ bool myObjType::AddTriangleAtIndex(int index, int vertices[3])
 {
     auto it = unassignedTris.find(index);
     if (it == unassignedTris.end()) {
-        cerr << "Trying to add a triangle at an invalid index " << index << endl;
+        cout << "Trying to add a triangle at an invalid index " << index << endl;
         return false;
     }
 
     unassignedTris.erase(it);
+
+    vertexToTriangles[vertices[0]].emplace(index);
+    vertexToTriangles[vertices[1]].emplace(index);
+    vertexToTriangles[vertices[2]].emplace(index);
 
     tlist[index][0] = vertices[0];
     tlist[index][1] = vertices[1];
@@ -650,23 +654,27 @@ bool myObjType::AddTriangleAtIndex(int index, int vertices[3])
     edgeLinks[{vertices[1], vertices[2]}].emplace(vertices[0]);
     edgeLinks[{vertices[2], vertices[0]}].emplace(vertices[1]);
 
+    //cout << "Added triangle ";
+    //printOrTri(makeOrTri(index, 0));
+    //cout << " at index " << index << endl;
+
     return true;
 }
 
 void myObjType::RemoveTriangleAtIndex(int index)
 {
     if (!isValidTriangle(index)) {
-        cerr << "Tried removing an invalid triangle at index " << index << endl;
+        cout << "Tried removing an invalid triangle at index " << index << endl;
         return;
     }
-
-    tlist[index][0] = 0;
-    tlist[index][1] = 0;
-    tlist[index][2] = 0;
 
     unassignedTris.emplace(index);
 
     int* vertices = tlist[index];
+
+    vertexToTriangles[vertices[0]].erase(index);
+    vertexToTriangles[vertices[1]].erase(index);
+    vertexToTriangles[vertices[2]].erase(index);
 
     --vertexDegreeList[vertices[0]];
     --vertexDegreeList[vertices[1]];
@@ -687,6 +695,14 @@ void myObjType::RemoveTriangleAtIndex(int index)
     edgeLinks[{vertices[0], vertices[1]}].erase(vertices[2]);
     edgeLinks[{vertices[1], vertices[2]}].erase(vertices[0]);
     edgeLinks[{vertices[2], vertices[0]}].erase(vertices[1]);
+
+    //cout << "Removed triangle ";
+    //printOrTri(makeOrTri(index, 0));
+    //cout << " at index " << index << endl;
+
+    tlist[index][0] = 0;
+    tlist[index][1] = 0;
+    tlist[index][2] = 0;
 }
 
 bool myObjType::isValidVertex(int index)
@@ -713,17 +729,17 @@ int myObjType::addVertex(vec3 position)
 void myObjType::setVertexPosition(int index, vec3 position)
 {
     if (!isValidVertex(index)) {
-        cerr << "Attempted to set position of vertex that does not exist: " << index << endl;
+        //cout << "Attempted to set position of vertex that does not exist: " << index << endl;
         return;
     }
 
     position.copyToArray(vlist[index]);
 }
 
-void myObjType::removeVertex(int index)
+void myObjType::removeVertexOnly(int index)
 {
     if (!isValidVertex(index)) {
-        cerr << "Attempted to remove vertex that does not exist: " << index << endl;
+        //cout << "Attempted to remove vertex that does not exist: " << index << endl;
         return;
     }
 
@@ -732,7 +748,7 @@ void myObjType::removeVertex(int index)
 
 bool myObjType::IsEdgeContractable(Edge edge)
 {
-    cout << "--------- Checking if " << edge.ToString() << " is contractable... ---------" << endl;
+    //cout << "--------- Checking if " << edge.ToString() << " is contractable... ---------" << endl;
 
     int v1 = edge.v1;
     int v2 = edge.v2;
@@ -741,19 +757,19 @@ bool myObjType::IsEdgeContractable(Edge edge)
     if (edgeLinkIt == edgeLinks.end()) return false;
     unordered_set<int> linkEdge = edgeLinkIt->second;
 
-    cout << "Edge's Link: " << linkEdge << endl;
+    //cout << "Edge's Link: " << linkEdge << endl;
 
     auto v1LinkIt = vertexLinks.find(v1);
     if (v1LinkIt == vertexLinks.end()) return false;
     unordered_set<int> linkV1 = v1LinkIt->second;
 
-    cout << "Vertex " << v1 << "'s Link: " << linkV1 << endl;
+    //cout << "Vertex " << v1 << "'s Link: " << linkV1 << endl;
 
     auto v2LinkIt = vertexLinks.find(v2);
     if (v2LinkIt == vertexLinks.end()) return false;
     unordered_set<int> linkV2 = v2LinkIt->second;
 
-    cout << "Vertex " << v2 << "'s Link: " << linkV2 << endl;
+    //cout << "Vertex " << v2 << "'s Link: " << linkV2 << endl;
 
     unordered_set<int> intersect;
     for (int lk : linkV1)
@@ -763,7 +779,7 @@ bool myObjType::IsEdgeContractable(Edge edge)
         }
     }
 
-    cout << "Intersect's Link: " << intersect << endl;
+    //cout << "Intersect's Link: " << intersect << endl;
 
     // check if intersect == edge's link
     if (linkEdge.size() != intersect.size()) return false;
@@ -772,9 +788,76 @@ bool myObjType::IsEdgeContractable(Edge edge)
         if (intersect.count(lk) == 0) return false;
     }
 
-    cout << "cxb" << endl;
+    //cout << "cxb" << endl;
 
     return true;
+}
+
+void myObjType::ContractEdge(Edge edge)
+{
+    //cout << "--------- Contracting " << edge.ToString() << " ---------" << endl;
+
+    int retainVertex;
+    int removeVertex;
+
+    // Keep and move the vertex that has more triangles
+    if (vertexToTriangles[edge.v1].size() >= vertexToTriangles[edge.v2].size()) {
+        retainVertex = edge.v1;
+        removeVertex = edge.v2;
+    }
+    else {
+        retainVertex = edge.v2;
+        removeVertex = edge.v1;
+    }
+
+    unordered_set<int> toRemove;
+    for (int v : vertexToTriangles[removeVertex]) {
+        if (vertexToTriangles[retainVertex].find(v) != vertexToTriangles[retainVertex].end()) {
+            toRemove.emplace(v);
+        }
+    }
+
+    // Remove the common triangles first (that will be contracted away)
+    for (int v : toRemove) {
+        RemoveTriangleAtIndex(v);
+    }
+
+    // move v1 to in between v1 and v2.
+    vec3 locationDiff = { vlist[removeVertex][0] - vlist[retainVertex][0],
+                            vlist[removeVertex][1] - vlist[retainVertex][1],
+                            vlist[removeVertex][2] - vlist[retainVertex][2] };
+    locationDiff *= 0.5f; // move halfway
+    
+
+    // set new position
+    vlist[retainVertex][0] += locationDiff.x;
+    vlist[retainVertex][1] += locationDiff.y;
+    vlist[retainVertex][2] += locationDiff.z;
+
+    // Now we need to transfer removeVertex's triangles over to retainVertex
+    unordered_set<int> toTransfer = vertexToTriangles[removeVertex];
+
+    for (int triIndex : toTransfer) {
+        int* vertices = tlist[triIndex];
+        int savedTri[3] = { 0 };
+        for (int i = 0; i < 3; i++) {
+            // changing removeVertex in the triangle to retainVertex
+            if (vertices[i] == removeVertex) {
+                savedTri[i] = retainVertex;
+            }
+            else {
+                savedTri[i] = vertices[i];
+            }
+        }
+
+        RemoveTriangleAtIndex(triIndex);
+
+        AddTriangleAtIndex(triIndex, savedTri);
+    }
+
+    edgeSet.erase(edge);
+
+    removeVertexOnly(removeVertex);
 }
 
 void myObjType::printVertexList()
@@ -822,11 +905,16 @@ void myObjType::printOrTri(OrTri ot)
 
 void myObjType::performRemeshing(int numIterations)
 {
+    cout << "Starting to do Remeshing with " << numIterations << " iterations." << endl;
     for (int itNum = 0; itNum < numIterations; itNum++) {
-
+        for (auto edgeIt = edgeSet.begin(); edgeIt != edgeSet.end(); ++edgeIt) {
+            if (IsEdgeContractable(*edgeIt)) {
+                cout << "Contracting Edge: " << edgeIt->ToString() << endl;
+                ContractEdge(*edgeIt);
+                break;
+            }
+        }
     }
-
-
 }
 
 void myObjType::splitAllLongEdges(float threshold)
