@@ -96,8 +96,7 @@ public:
     bool IsEdgeContractable(Edge edge);
 
     void ContractEdge(Edge edge);
-    void InsertEdgeOnly(Edge edge);
-    void RemoveEdgeOnly(Edge edge);
+    void SplitEdge(Edge edge);
 
 private:
     void printVertexList();

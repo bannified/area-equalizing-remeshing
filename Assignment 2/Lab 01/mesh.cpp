@@ -168,7 +168,8 @@ void myObjType::readFile(char* filename)
                     }
                 }
             }
-        } else if (ext == ".ply") {
+        }
+        else if (ext == ".ply") {
             // parse .ply
 
             int numVertexElements = 0;
@@ -250,7 +251,7 @@ void myObjType::readFile(char* filename)
         ScopedTimer timer("vertex to Triangles map, and vertex degrees list");
 
         // reset vertexDegreeList
-        std::fill_n(vertexDegreeList, vcount + 1, 0); 
+        std::fill_n(vertexDegreeList, vcount + 1, 0);
         std::fill_n(vertexDegreeList + vcount + 1, MAXV - (vcount + 1), -1); // non-existant vertices 
 
         for (int i = 1; i <= tcount; i++) {
@@ -300,7 +301,7 @@ void myObjType::readFile(char* filename)
 
     cout << "No. of vertices: " << vcount - unassignedVerts.size() << endl;
     cout << "No. of triangles: " << tcount - unassignedTris.size() << endl;
-    
+
     computeStat();
 }
 
@@ -585,6 +586,10 @@ int myObjType::AddTriangle(int vertices[3])
         index = tcount;
     }
 
+    vertexToTriangles[vertices[0]].emplace(index);
+    vertexToTriangles[vertices[1]].emplace(index);
+    vertexToTriangles[vertices[2]].emplace(index);
+
     tlist[index][0] = vertices[0];
     tlist[index][1] = vertices[1];
     tlist[index][2] = vertices[2];
@@ -609,6 +614,10 @@ int myObjType::AddTriangle(int vertices[3])
     edgeLinks[{vertices[1], vertices[2]}].emplace(vertices[0]);
     edgeLinks[{vertices[2], vertices[0]}].emplace(vertices[1]);
 
+    //cout << "Added triangle ";
+    //printOrTri(makeOrTri(index, 0));
+    //cout << " at index " << index << endl;
+
     return index;
 }
 
@@ -625,10 +634,6 @@ bool myObjType::AddTriangleAtIndex(int index, int vertices[3])
     vertexToTriangles[vertices[0]].emplace(index);
     vertexToTriangles[vertices[1]].emplace(index);
     vertexToTriangles[vertices[2]].emplace(index);
-
-    tlist[index][0] = vertices[0];
-    tlist[index][1] = vertices[1];
-    tlist[index][2] = vertices[2];
 
     tlist[index][0] = vertices[0];
     tlist[index][1] = vertices[1];
@@ -689,7 +694,7 @@ void myObjType::RemoveTriangleAtIndex(int index)
 
     // Edges
     edgeSet.erase({ vertices[0], vertices[1] });
-    edgeSet.erase({vertices[1], vertices[2] });
+    edgeSet.erase({ vertices[1], vertices[2] });
     edgeSet.erase({ vertices[2], vertices[0] });
 
     edgeLinks[{vertices[0], vertices[1]}].erase(vertices[2]);
@@ -723,6 +728,7 @@ int myObjType::addVertex(vec3 position)
     }
 
     position.copyToArray(vlist[index]);
+    setVertexColor(index, 0.5f, 1.0f, 0.5f);
     return index;
 }
 
@@ -796,7 +802,6 @@ bool myObjType::IsEdgeContractable(Edge edge)
 void myObjType::ContractEdge(Edge edge)
 {
     //cout << "--------- Contracting " << edge.ToString() << " ---------" << endl;
-
     int retainVertex;
     int removeVertex;
 
@@ -827,7 +832,7 @@ void myObjType::ContractEdge(Edge edge)
                             vlist[removeVertex][1] - vlist[retainVertex][1],
                             vlist[removeVertex][2] - vlist[retainVertex][2] };
     locationDiff *= 0.5f; // move halfway
-    
+
 
     // set new position
     vlist[retainVertex][0] += locationDiff.x;
@@ -858,6 +863,58 @@ void myObjType::ContractEdge(Edge edge)
     edgeSet.erase(edge);
 
     removeVertexOnly(removeVertex);
+}
+
+void myObjType::SplitEdge(Edge edge)
+{
+    int v1 = edge.v1;
+    int v2 = edge.v2;
+
+    // Creating the new vertex
+    // move v1 to in between v1 and v2.
+    vec3 locationDiff = { vlist[v2][0] - vlist[v1][0],
+                            vlist[v2][1] - vlist[v1][1],
+                            vlist[v2][2] - vlist[v1][2] };
+    locationDiff *= 0.5f; // move halfway
+
+    double vPos[3] = { vlist[v1][0] + locationDiff.x,
+                        vlist[v1][1] + locationDiff.y,
+                        vlist[v1][2] + locationDiff.z };
+
+    int v3 = addVertex(vPos);
+
+    unordered_set<int> toSplit;
+    // finding the common triangles to split. (and remove before adding the new ones)
+    for (int v : vertexToTriangles[v1]) {
+        if (vertexToTriangles[v2].find(v) != vertexToTriangles[v2].end()) {
+            toSplit.emplace(v);
+        }
+    }
+
+    // splitting a triangle into two.
+    for (int t : toSplit) {
+        // replacing v1 with v3
+        int triV1Replace[3] = { tlist[t][0], tlist[t][1], tlist[t][2] };
+        for (int i = 0; i < 3; i++) {
+            if (triV1Replace[i] == v1) {
+                triV1Replace[i] = v3;
+                break;
+            }
+        }
+
+        // replacing v2 with v3
+        int triV2Replace[3] = { tlist[t][0], tlist[t][1], tlist[t][2] };
+        for (int i = 0; i < 3; i++) {
+            if (triV2Replace[i] == v2) {
+                triV2Replace[i] = v3;
+                break;
+            }
+        }
+
+        RemoveTriangleAtIndex(t);
+        AddTriangle(triV1Replace);
+        AddTriangle(triV2Replace);
+    }
 }
 
 void myObjType::printVertexList()
@@ -908,11 +965,9 @@ void myObjType::performRemeshing(int numIterations)
     cout << "Starting to do Remeshing with " << numIterations << " iterations." << endl;
     for (int itNum = 0; itNum < numIterations; itNum++) {
         for (auto edgeIt = edgeSet.begin(); edgeIt != edgeSet.end(); ++edgeIt) {
-            if (IsEdgeContractable(*edgeIt)) {
-                cout << "Contracting Edge: " << edgeIt->ToString() << endl;
-                ContractEdge(*edgeIt);
-                break;
-            }
+            cout << "Splitting Edge: " << edgeIt->ToString() << endl;
+            SplitEdge(*edgeIt);
+            break;
         }
     }
 }
