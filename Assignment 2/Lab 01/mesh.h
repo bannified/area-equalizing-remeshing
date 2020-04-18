@@ -34,6 +34,7 @@ class myObjType {
     int fnlist[MAXT][6];     // fnext list
     double nlist[MAXT][3];   // storing triangle normals
     double vnlist[MAXT][3];  // Vertex Normal vectors list
+    bool isBoundaryVertexList[MAXV]; // isBoundary
     float colorlist[MAXT][4];   // colors list
     int triComponentNumber[MAXT];      // triangle list
 
@@ -97,6 +98,8 @@ public:
 
     void ContractEdge(Edge edge);
     void SplitEdge(Edge edge);
+    bool ShouldFlipEdge(const Edge& edge);
+    void FlipEdge(const Edge& edge);
 
 private:
     void printVertexList();
@@ -104,6 +107,9 @@ private:
     void printTriList();
 
     void printOrTri(OrTri ot);
+
+    void computeTriangleNormal(int triIndex);
+    void computeVertexNormal(int vertexIndex);
 
 public:
     /**

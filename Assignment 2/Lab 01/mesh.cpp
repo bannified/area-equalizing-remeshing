@@ -11,6 +11,7 @@
 
 #include "math.h"
 #include "limits"
+#include <assert.h>
 #include <algorithm>
 #include <iterator>
 #include <string>
@@ -310,16 +311,7 @@ void myObjType::computeVertexNormals()
     ScopedTimer timer("Vertex normal computation");
 
     for (int i = 1; i <= vcount; i++) {
-        unordered_set<int> tris = vertexToTriangles[i];
-        vec3 vNormal(0.0f, 0.0f, 0.0f);
-        for (int tri : tris) {
-            vNormal.x += nlist[tri][0];
-            vNormal.y += nlist[tri][1];
-            vNormal.z += nlist[tri][2];
-        }
-        vNormal /= tris.size();
-        vNormal.normalize();
-        vNormal.copyToArray(vnlist[i]);
+        computeVertexNormal(i);
     }
 }
 
@@ -328,17 +320,7 @@ void myObjType::computeTriangleNormals()
     ScopedTimer timer("Normal computation");
 
     for (int i = 1; i <= tcount; i++) {
-        int* vertices = tlist[i];
-        vec3 v0 = vec3(vlist[vertices[0]][0], vlist[vertices[0]][1], vlist[vertices[0]][2]);
-        vec3 v1 = vec3(vlist[vertices[1]][0], vlist[vertices[1]][1], vlist[vertices[1]][2]);
-        vec3 v2 = vec3(vlist[vertices[2]][0], vlist[vertices[2]][1], vlist[vertices[2]][2]);
-
-        vec3 v01 = v1 - v0;
-        vec3 v02 = v2 - v0;
-        vec3 crossProd = cross(v01, v02);
-        crossProd.normalize();
-
-        crossProd.copyToArray(nlist[i]);
+        computeTriangleNormal(i);
     }
 }
 
@@ -356,7 +338,8 @@ void myObjType::computeFNext()
 {
     ScopedTimer timer("fnext Population");
 
-    std::fill(fnlist[0], fnlist[0] + MAXT * NUM_FNEXT, 0);
+    std::fill(&fnlist[0][0], &fnlist[0][0] + MAXT * NUM_FNEXT, 0);
+    std::fill(&isBoundaryVertexList[0], &isBoundaryVertexList[0] + sizeof(isBoundaryVertexList), false);
 
     // Lab 2 (main): Populating fnext list
     for (int i = 1; i <= tcount; i++) {
@@ -394,6 +377,8 @@ void myObjType::computeFNext()
 
                 setVertexColor(origin, 1.0f, 0.0f, 0.0f);
                 setVertexColor(destination, 1.0f, 0.0f, 0.0f);
+                isBoundaryVertexList[origin] = true;
+                isBoundaryVertexList[destination] = true;
 
                 continue;
             }
@@ -917,6 +902,106 @@ void myObjType::SplitEdge(Edge edge)
     }
 }
 
+bool myObjType::ShouldFlipEdge(const Edge& edge)
+{
+    auto it = edgeLinks.find(edge);
+    if (it == edgeLinks.end()) {
+        return false;
+    }
+
+    if (it->second.size() < 2) {
+        return false;
+    }
+
+    int a1 = edge.v1;
+    int a2 = edge.v2;
+    int b1 = *it->second.begin();
+    int b2 = *(++it->second.begin());
+
+    bool idealDegreea1 = isBoundaryVertexList[a1] ? 4 : 6;
+    bool idealDegreea2 = isBoundaryVertexList[a2] ? 4 : 6;
+    bool idealDegreeb1 = isBoundaryVertexList[b1] ? 4 : 6;
+    bool idealDegreeb2 = isBoundaryVertexList[b2] ? 4 : 6;
+
+    int preflipDeviation = abs(vertexDegreeList[a1] - idealDegreea1) +
+        abs(vertexDegreeList[a2] - idealDegreea2) +
+        abs(vertexDegreeList[b1] - idealDegreeb1) +
+        abs(vertexDegreeList[b2] - idealDegreeb2);
+
+    int postflipDeviation = abs(vertexDegreeList[a1] - 1 - idealDegreea1) +
+        abs(vertexDegreeList[a2] - 1 - idealDegreea2) +
+        abs(vertexDegreeList[b1] + 1 - idealDegreeb1) +
+        abs(vertexDegreeList[b2] + 1 - idealDegreeb2);
+
+    return postflipDeviation < preflipDeviation;
+}
+
+void myObjType::FlipEdge(const Edge& edge)
+{
+    auto it = edgeLinks.find(edge);
+    if (it == edgeLinks.end()) {
+        return;
+    }
+
+    if (it->second.size() < 2) {
+        return;
+    }
+
+    int a1 = edge.v1;
+    int a2 = edge.v2;
+    int b1 = *it->second.begin();
+    int b2 = *(++it->second.begin());
+
+    // finding the tris to remove
+    unordered_set<int> toRemove;
+
+    // finding the common triangles to split. (and remove before adding the new ones)
+    for (int v : vertexToTriangles[a1]) {
+        if (vertexToTriangles[a2].find(v) != vertexToTriangles[a2].end()) {
+            toRemove.emplace(v);
+        }
+    }
+
+    if (toRemove.size() != 2) {
+        return;
+    }
+
+    int triReplace1[3];
+    int triReplace2[3];
+
+    // Checking triangle's normal in order to construct to correct triangle
+    vec3 a2Pos = vec3(vlist[a2][0], vlist[a2][1], vlist[a2][2]);
+    vec3 b1Pos = vec3(vlist[b1][0], vlist[b1][1], vlist[b1][2]);
+    vec3 a1Pos = vec3(vlist[a1][0], vlist[a1][1], vlist[a1][2]);
+
+    vec3 v01 = a2Pos - b1Pos;
+    vec3 v02 = a1Pos - b1Pos;
+    vec3 crossProd = cross(v01, v02);
+
+    vec3 currNormal = nlist[*toRemove.begin()];
+
+    if (dot(crossProd, currNormal) >= 0) { // pointing in same direction
+        triReplace1[0] = a1; triReplace1[1] = b1; triReplace1[2] = b2;
+        triReplace2[0] = a2; triReplace2[1] = b2; triReplace2[2] = b1;
+    }
+    else {
+        triReplace1[0] = a1; triReplace1[1] = b2; triReplace1[2] = b1;
+        triReplace2[0] = a2; triReplace2[1] = b1; triReplace2[2] = b2;
+    }
+
+    for (int t : toRemove) {
+        RemoveTriangleAtIndex(t);
+    }
+
+    computeTriangleNormal(AddTriangle(triReplace1));
+    computeTriangleNormal(AddTriangle(triReplace2));
+
+    computeVertexNormal(a1);
+    computeVertexNormal(a2);
+    computeVertexNormal(b1);
+    computeVertexNormal(b2);
+}
+
 void myObjType::printVertexList()
 {
     for (int i = 1; i <= vcount; i++) {
@@ -960,14 +1045,45 @@ void myObjType::printOrTri(OrTri ot)
     std::cout << org(ot) << "|" << dest(ot) << "|" << last(ot);
 }
 
+void myObjType::computeTriangleNormal(int triIndex)
+{
+    int* vertices = tlist[triIndex];
+    vec3 v0 = vec3(vlist[vertices[0]][0], vlist[vertices[0]][1], vlist[vertices[0]][2]);
+    vec3 v1 = vec3(vlist[vertices[1]][0], vlist[vertices[1]][1], vlist[vertices[1]][2]);
+    vec3 v2 = vec3(vlist[vertices[2]][0], vlist[vertices[2]][1], vlist[vertices[2]][2]);
+
+    vec3 v01 = v1 - v0;
+    vec3 v02 = v2 - v0;
+    vec3 crossProd = cross(v01, v02);
+    crossProd.normalize();
+
+    crossProd.copyToArray(nlist[triIndex]);
+}
+
+void myObjType::computeVertexNormal(int vertexIndex)
+{
+    unordered_set<int> tris = vertexToTriangles[vertexIndex];
+    vec3 vNormal(0.0f, 0.0f, 0.0f);
+    for (int tri : tris) {
+        vNormal.x += nlist[tri][0];
+        vNormal.y += nlist[tri][1];
+        vNormal.z += nlist[tri][2];
+    }
+    vNormal /= tris.size();
+    vNormal.normalize();
+    vNormal.copyToArray(vnlist[vertexIndex]);
+}
+
 void myObjType::performRemeshing(int numIterations)
 {
     cout << "Starting to do Remeshing with " << numIterations << " iterations." << endl;
     for (int itNum = 0; itNum < numIterations; itNum++) {
         for (auto edgeIt = edgeSet.begin(); edgeIt != edgeSet.end(); ++edgeIt) {
-            cout << "Splitting Edge: " << edgeIt->ToString() << endl;
-            SplitEdge(*edgeIt);
-            break;
+            /*if (ShouldFlipEdge(*edgeIt)) {
+                cout << "Flipping Edge: " << edgeIt->ToString() << endl;
+                FlipEdge(*edgeIt);
+                break;
+            }*/
         }
     }
 }
