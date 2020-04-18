@@ -60,6 +60,8 @@ class myObjType {
     
     std::unordered_map<int, std::unordered_set<int> > vertexToTriangles;
 
+    int currentVertex = 1;
+
 public:
     bool smooth = false;
 
@@ -100,6 +102,8 @@ public:
     void SplitEdge(Edge edge);
     bool ShouldFlipEdge(const Edge& edge);
     void FlipEdge(const Edge& edge);
+
+    void ShiftVertexTowardsCentroid(int vertexIndex);
 
 private:
     void printVertexList();
