@@ -26,6 +26,7 @@
 #include <iomanip>
 #include <utility>
 #include <unordered_map>
+
 using namespace std;
 
 const string gPlyElementString = "element ";
@@ -102,6 +103,98 @@ void myObjType::writeFile(char* filename)
     }
 
     cout << "Writing to " << filename << " done.\n";
+}
+
+void myObjType::goToPreviousMeshVersion()
+{
+    if (meshVersions.size() == 0) {
+        cout << "Versioned meshes not ready yet! Please do remeshing first with the key 'G'!" << endl;
+        return;
+    }
+
+
+    int nextVersion = (meshVersions.size() + currentMeshVersionIndex - 1) % (meshVersions.size());
+    cout << "--------- Going to mesh version " << nextVersion << " --------------------" << endl;
+    currentMeshVersionIndex = nextVersion;
+    restoreFromSavedObject(meshVersions[nextVersion]);
+}
+
+void myObjType::goToNextMeshVersion()
+{
+    if (meshVersions.size() == 0) {
+        cout << "Versioned meshes not ready yet! Please do remeshing first with the key 'G'!" << endl;
+        return;
+    }
+    int nextVersion = (currentMeshVersionIndex + 1) % (meshVersions.size());
+    cout << "--------- Going to mesh version " << nextVersion << " --------------------" << endl;
+    currentMeshVersionIndex = nextVersion;
+    restoreFromSavedObject(meshVersions[nextVersion]);
+}
+
+void myObjType::restoreFromSavedObject(const savedObject& obj)
+{
+    std::copy(&obj.vlist[0][0], &obj.vlist[0][0] + MAXV * 3, &vlist[0][0]);
+    std::copy(&obj.tlist[0][0], &obj.tlist[0][0] + MAXT * 3, &tlist[0][0]);
+    unassignedTris = unordered_set<int>(obj.unassignedTris);
+    unassignedVerts = unordered_set<int>(obj.unassignedVerts);
+    tcount = obj.tcount;
+    vcount = obj.vcount;
+
+    initializeMesh();
+
+    cout << "########## Mesh version " << currentMeshVersionIndex << "'s stats ##########" << endl;
+    printStats();
+}
+
+void myObjType::initializeMesh()
+{
+    initializeVertexColors();
+
+    {
+        ScopedTimer timer("vertex to Triangles map, and vertex degrees list");
+
+        // reset vertexDegreeList
+        std::fill_n(vertexDegreeList, vcount + 1, 0);
+        std::fill_n(vertexDegreeList + vcount + 1, MAXV - (vcount + 1), -1); // non-existant vertices 
+
+        for (int i = 1; i <= tcount; i++) {
+            int* vertices = tlist[i];
+            vertexToTriangles[vertices[0]].emplace(i);
+            vertexToTriangles[vertices[1]].emplace(i);
+            vertexToTriangles[vertices[2]].emplace(i);
+
+            // todo: move these to be computed when we wanna do remeshing.
+            ++vertexDegreeList[vertices[0]];
+            ++vertexDegreeList[vertices[1]];
+            ++vertexDegreeList[vertices[2]];
+
+            vertexLinks[vertices[0]].emplace(vertices[1]);
+            vertexLinks[vertices[0]].emplace(vertices[2]);
+            vertexLinks[vertices[1]].emplace(vertices[0]);
+            vertexLinks[vertices[1]].emplace(vertices[2]);
+            vertexLinks[vertices[2]].emplace(vertices[1]);
+            vertexLinks[vertices[2]].emplace(vertices[2]);
+
+            edgeSet.emplace(vertices[0], vertices[1]);
+            edgeSet.emplace(vertices[1], vertices[2]);
+            edgeSet.emplace(vertices[2], vertices[0]);
+
+            edgeLinks[{vertices[0], vertices[1]}].emplace(vertices[2]);
+            edgeLinks[{vertices[1], vertices[2]}].emplace(vertices[0]);
+            edgeLinks[{vertices[2], vertices[0]}].emplace(vertices[1]);
+        }
+    }
+
+    computeFNext();
+
+    // Lab 2 Optional: Computing number of components
+    computeNumComponents();
+
+    computeTriangleNormals();
+
+    computeVertexNormals();
+
+    computeStat();
 }
 
 void myObjType::readFile(char* filename)
@@ -246,64 +339,7 @@ void myObjType::readFile(char* filename)
         }
     }
 
-    initializeVertexColors();
-
-    {
-        ScopedTimer timer("vertex to Triangles map, and vertex degrees list");
-
-        // reset vertexDegreeList
-        std::fill_n(vertexDegreeList, vcount + 1, 0);
-        std::fill_n(vertexDegreeList + vcount + 1, MAXV - (vcount + 1), -1); // non-existant vertices 
-
-        for (int i = 1; i <= tcount; i++) {
-            int* vertices = tlist[i];
-            vertexToTriangles[vertices[0]].emplace(i);
-            vertexToTriangles[vertices[1]].emplace(i);
-            vertexToTriangles[vertices[2]].emplace(i);
-
-            // todo: move these to be computed when we wanna do remeshing.
-            ++vertexDegreeList[vertices[0]];
-            ++vertexDegreeList[vertices[1]];
-            ++vertexDegreeList[vertices[2]];
-
-            vertexLinks[vertices[0]].emplace(vertices[1]);
-            vertexLinks[vertices[0]].emplace(vertices[2]);
-            vertexLinks[vertices[1]].emplace(vertices[0]);
-            vertexLinks[vertices[1]].emplace(vertices[2]);
-            vertexLinks[vertices[2]].emplace(vertices[1]);
-            vertexLinks[vertices[2]].emplace(vertices[2]);
-
-            // Edges
-            //InsertEdgeOnly({ vertices[0], vertices[1] });
-            //InsertEdgeOnly({ vertices[1], vertices[2] });
-            //InsertEdgeOnly({ vertices[2], vertices[0] });
-
-            edgeSet.emplace(vertices[0], vertices[1]);
-            edgeSet.emplace(vertices[1], vertices[2]);
-            edgeSet.emplace(vertices[2], vertices[0]);
-
-            edgeLinks[{vertices[0], vertices[1]}].emplace(vertices[2]);
-            edgeLinks[{vertices[1], vertices[2]}].emplace(vertices[0]);
-            edgeLinks[{vertices[2], vertices[0]}].emplace(vertices[1]);
-        }
-    }
-
-    computeFNext();
-
-    //printfnList();
-
-    // Lab 2 Optional: Computing number of components
-    computeNumComponents();
-    cout << "Number of components: " << numComponents << endl;
-
-    computeTriangleNormals();
-
-    computeVertexNormals();
-
-    cout << "No. of vertices: " << vcount - unassignedVerts.size() << endl;
-    cout << "No. of triangles: " << tcount - unassignedTris.size() << endl;
-
-    computeStat();
+    initializeMesh();
 }
 
 void myObjType::computeVertexNormals()
@@ -327,9 +363,9 @@ void myObjType::computeTriangleNormals()
 void myObjType::initializeVertexColors()
 {
     for (int i = 1; i <= tcount; i++) {
-        for (int j = 1; j <= 3; j++) {
-            colorlist[i][j] = 0.5f;
-        }
+        colorlist[i][0] = 0.5f;
+        colorlist[i][1] = 0.5f;
+        colorlist[i][2] = 0.5f;
         colorlist[i][3] = 1.0f;
     }
 }
@@ -343,6 +379,7 @@ void myObjType::computeFNext()
 
     // Lab 2 (main): Populating fnext list
     for (int i = 1; i <= tcount; i++) {
+        if (!isValidTriangle(i)) continue;
         //std::cout << "Populating fnext for triangle: " << i << "/" << tcount << std::endl;
         int* vertices = tlist[i];
         // Fill fnext list for face i.
@@ -401,12 +438,13 @@ void myObjType::computeNumComponents()
     ScopedTimer timer("Computing number of components");
 
     numComponents = 0;
-    int unvisitedTCount = tcount;
+    int unvisitedTCount = tcount - unassignedTris.size();
     bool visitedTris[MAXT] = { 0 };
 
     while (unvisitedTCount > 0) {
         int startingTri = 0;
         for (int i = 1; i <= tcount; i++) {
+            if (!isValidTriangle(i)) continue;
             if (!visitedTris[i]) {
                 startingTri = i;
                 break;
@@ -446,10 +484,11 @@ void myObjType::computeStat()
 {
     ScopedTimer timer("Stats computation");
     int i;
-    double minAngle = 180;
-    double maxAngle = 0;
+    minAngle = 180;
+    maxAngle = 0;
 
     for (int i = 1; i <= tcount; i++) {
+        if (!isValidTriangle(i)) continue;
         int* vertices = tlist[i];
         vec3 v0 = vec3(vlist[vertices[0]][0], vlist[vertices[0]][1], vlist[vertices[0]][2]);
         vec3 v1 = vec3(vlist[vertices[1]][0], vlist[vertices[1]][1], vlist[vertices[1]][2]);
@@ -476,26 +515,41 @@ void myObjType::computeStat()
             minAngle = tMinAngle;
         }
         int minBucketIndex = tMinAngle / 10.0f;
-        ++(statMinAngle[minBucketIndex]);
+        if (minBucketIndex >= 0 && minBucketIndex < 18) {
+            ++(statMinAngle[minBucketIndex]);
+        }
 
         if (tMaxAngle > maxAngle) {
             maxAngle = tMaxAngle;
         }
-        int maxBucketIndex = tMaxAngle / 10;
-        ++(statMaxAngle[maxBucketIndex]);
+        int maxBucketIndex = tMaxAngle / 10.0f;
+        if (maxBucketIndex >= 0 && maxBucketIndex < 18) {
+            ++(statMaxAngle[maxBucketIndex]);
+        }
     }
+}
+
+void myObjType::printStats()
+{
+    cout << "------------ START STATS -----------------" << endl;
+
+    cout << "Tris: " << tcount - unassignedVerts.size() << " // Verts: " << vcount - unassignedTris.size() << endl;
 
     cout << "Min. angle = " << minAngle << endl;
     cout << "Max. angle = " << maxAngle << endl;
 
     cout << "Statistics for Maximum Angles" << endl;
-    for (i = 0; i < 18; i++)
+    for (int i = 0; i < 18; i++)
         cout << statMaxAngle[i] << " ";
     cout << endl;
     cout << "Statistics for Minimum Angles" << endl;
-    for (i = 0; i < 18; i++)
+    for (int i = 0; i < 18; i++)
         cout << statMinAngle[i] << " ";
     cout << endl;
+
+    cout << "Number of components: " << numComponents << endl;
+
+    cout << "-------------- END STATS ------------------" << endl;
 }
 
 int myObjType::org(OrTri ot)
@@ -603,6 +657,8 @@ int myObjType::AddTriangle(int vertices[3])
     //printOrTri(makeOrTri(index, 0));
     //cout << " at index " << index << endl;
 
+    setVertexColor(index, 0.5f, 0.5f, 0.5f);
+
     return index;
 }
 
@@ -647,6 +703,8 @@ bool myObjType::AddTriangleAtIndex(int index, int vertices[3])
     //cout << "Added triangle ";
     //printOrTri(makeOrTri(index, 0));
     //cout << " at index " << index << endl;
+
+    setVertexColor(index, 0.5f, 0.5f, 0.5f);
 
     return true;
 }
@@ -713,7 +771,7 @@ int myObjType::addVertex(vec3 position)
     }
 
     position.copyToArray(vlist[index]);
-    setVertexColor(index, 0.5f, 1.0f, 0.5f);
+
     return index;
 }
 
@@ -784,7 +842,7 @@ bool myObjType::IsEdgeContractable(Edge edge)
     return true;
 }
 
-void myObjType::ContractEdge(Edge edge)
+void myObjType::CollapseEdge(Edge edge)
 {
     //cout << "--------- Contracting " << edge.ToString() << " ---------" << endl;
     int retainVertex;
@@ -1002,6 +1060,26 @@ void myObjType::FlipEdge(const Edge& edge)
     computeVertexNormal(b2);
 }
 
+vec3 myObjType::computeVertexCentroid(int vertexIndex)
+{
+    if (isBoundaryVertexList[vertexIndex]) return vlist[vertexIndex]; // don't move boundary vertices
+
+    const unordered_set<int>& neighbours = vertexLinks[vertexIndex];
+
+    vec3 currentPos = vlist[vertexIndex];
+
+    vec3 centroid;
+    for (int vert : neighbours) {
+        centroid.x += vlist[vert][0];
+        centroid.y += vlist[vert][1];
+        centroid.z += vlist[vert][2];
+    }
+
+    centroid /= (double)neighbours.size();
+
+    return centroid;
+}
+
 void myObjType::printVertexList()
 {
     for (int i = 1; i <= vcount; i++) {
@@ -1076,25 +1154,81 @@ void myObjType::computeVertexNormal(int vertexIndex)
 
 void myObjType::performRemeshing(int numIterations)
 {
+    ScopedTimer timer("Area-Equalizing Remeshing routine");
     cout << "Starting to do Remeshing with " << numIterations << " iterations." << endl;
+
     for (int itNum = 0; itNum < numIterations; itNum++) {
-        for (auto edgeIt = edgeSet.begin(); edgeIt != edgeSet.end(); ++edgeIt) {
-            /*if (ShouldFlipEdge(*edgeIt)) {
-                cout << "Flipping Edge: " << edgeIt->ToString() << endl;
-                FlipEdge(*edgeIt);
-                break;
-            }*/
+        meshVersions.emplace_back(*this);
+        unordered_map<Edge, double> edgeLengths;
+        double runningLengthSum = 0.0f;
+        for (const Edge& edge : edgeSet) {
+            double len = magnitude(vec3(vlist[edge.v1]) - vec3(vlist[edge.v2]));
+            edgeLengths.emplace(edge, len);
+            runningLengthSum += len;
         }
+
+        double meanEdgeLength = runningLengthSum / edgeSet.size();
+
+        double splitThreshold = 4.0f * meanEdgeLength / 3.0f;
+        double collapseThreshold = 4.0f * meanEdgeLength / 5.0f;
+        unordered_set<Edge> toSplit;
+        unordered_set<Edge> toCollapse;
+
+        for (const auto& kv : edgeLengths)
+        {
+            if (kv.second > splitThreshold) {
+                toSplit.emplace(kv.first);
+            }
+            else if (kv.second < collapseThreshold) {
+                toCollapse.emplace(kv.first);
+            }
+        }
+
+        // Step 1: Split edges that are too long
+        for (const Edge& edge : toSplit) {
+            SplitEdge(edge);
+        }
+
+        // Step 2: Collapse edges that are too small.
+        for (const Edge& edge : toCollapse) {
+            if (IsEdgeContractable(edge)) {
+                CollapseEdge(edge);
+            }
+        }
+
+        // Step 3: Flip edges that are good to flip
+        unordered_set<Edge> edgesCopy = unordered_set<Edge>(edgeSet);
+        for (const Edge& edge : edgesCopy) {
+            if (ShouldFlipEdge(edge)) {
+                FlipEdge(edge);
+            }
+        }
+
+        // Step 4: Vertex Averaging. Moving vertex towards centroid tangentially
+        for (int i = 1; i <= vcount; i++) {
+            if (isValidVertex(i)) {
+                vec3 centroidPos = computeVertexCentroid(i);
+                centroidPos.copyToArray(centroids[i]);
+            }
+        }
+
+        // Step 4.2: Apply the computed vertex positions
+        for (int i = 1; i <= vcount; i++) {
+            if (isValidVertex(i)) {
+                vlist[i][0] = centroids[i][0];
+                vlist[i][1] = centroids[i][1];
+                vlist[i][2] = centroids[i][2];
+            }
+        }
+
+        computeTriangleNormals();
+        computeVertexNormals();
+        computeStat();
+        printStats();
     }
-}
 
-void myObjType::splitAllLongEdges(float threshold)
-{
-
-}
-
-void myObjType::mergeAllShortEdges(float threshold)
-{
+    meshVersions.emplace_back(*this);
+    currentMeshVersionIndex = meshVersions.size() - 1;
 
 }
 
@@ -1104,4 +1238,14 @@ void myObjType::setVertexColor(int vIdx, float r, float g, float b)
     colorlist[vIdx][1] = g;
     colorlist[vIdx][2] = b;
     colorlist[vIdx][3] = 1.0f;
+}
+
+savedObject::savedObject(myObjType &obj)
+{
+    std::copy(&obj.vlist[0][0], &obj.vlist[0][0] + MAXV * 3, &vlist[0][0]);
+    std::copy(&obj.tlist[0][0], &obj.tlist[0][0] + MAXT * 3, &tlist[0][0]);
+    unassignedTris = unordered_set<int>(obj.unassignedTris);
+    unassignedVerts = unordered_set<int>(obj.unassignedVerts);
+    tcount = obj.tcount;
+    vcount = obj.vcount;
 }

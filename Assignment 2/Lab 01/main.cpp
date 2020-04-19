@@ -90,8 +90,6 @@ void display(void)
 }
 
 
-
-
 void keyboard (unsigned char key, int x, int y)
 {
 	char filename[256];
@@ -138,11 +136,19 @@ void keyboard (unsigned char key, int x, int y)
         break;
     case 'g':
     case 'G':
-        myObj.performRemeshing(1);
+        myObj.performRemeshing(5);
         break;
 	case 'Q':
 	case 'q':
 		exit(0);
+    case 'n':
+    case 'N':
+        myObj.goToPreviousMeshVersion();
+        break;
+    case 'm':
+    case 'M':
+        myObj.goToNextMeshVersion();
+        break;
 	break;
 
 	default:

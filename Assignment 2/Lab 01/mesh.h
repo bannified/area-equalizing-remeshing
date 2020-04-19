@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include "vec3.h"
 #include "Edge.h"
 
@@ -24,8 +25,25 @@ inline OrTri sym(OrTri ot) { int v = ver(ot); return v < 3 ? ot + 3 : ot - 3; };
 
 using namespace std;
 
-class myObjType {
+class myObjType;
 
+class savedObject {
+
+public:
+    int tcount = 0;
+    int vcount = 0;
+    double vlist[MAXV][3];   // vertices list
+    int tlist[MAXT][3];      // triangle list
+
+    /* For Addition/Removal of Tris and Vertices */
+    unordered_set<int> unassignedTris;
+    unordered_set<int> unassignedVerts;
+
+    savedObject(myObjType &obj);
+};
+
+class myObjType {
+public:
     int vcount = 0;
     int tcount = 0;
 
@@ -44,6 +62,11 @@ class myObjType {
     int statMinAngle[18]; // each bucket is  degrees has a 10 degree range from 0 to 180 degree
     int statMaxAngle[18];
 
+    float minAngle;
+    float maxAngle;
+
+    double centroids[MAXV][3];
+
     int numComponents;
 
     /* For Addition/Removal of Tris and Vertices */
@@ -51,7 +74,6 @@ class myObjType {
     unordered_set<int> unassignedVerts;
 
     /* todo: For remeshing */
-
     unordered_set<Edge> edgeSet;    // Set of all edges
     int vertexDegreeList[MAXV];     // keeps track of the degree of every vertex. 
                                     // if degree is -1, then vertex does not exist.
@@ -61,6 +83,16 @@ class myObjType {
     std::unordered_map<int, std::unordered_set<int> > vertexToTriangles;
 
     int currentVertex = 1;
+
+    vector<savedObject> meshVersions;
+
+    int currentMeshVersionIndex = 0;
+    void goToPreviousMeshVersion();
+    void goToNextMeshVersion();
+
+    void restoreFromSavedObject(const savedObject& obj);
+
+    void initializeMesh();
 
 public:
     bool smooth = false;
@@ -80,6 +112,8 @@ public:
     void draw();
     void computeStat();
 
+    void printStats();
+
     int org(OrTri ot);
     int dest(OrTri ot);
     int last(OrTri ot);
@@ -98,12 +132,29 @@ public:
 
     bool IsEdgeContractable(Edge edge);
 
-    void ContractEdge(Edge edge);
+    void CollapseEdge(Edge edge);
     void SplitEdge(Edge edge);
     bool ShouldFlipEdge(const Edge& edge);
     void FlipEdge(const Edge& edge);
 
-    void ShiftVertexTowardsCentroid(int vertexIndex);
+    /**
+     * Simple Laplacian Smoothing. ref: https://en.wikipedia.org/wiki/Laplacian_smoothing
+     */
+    vec3 computeVertexCentroid(int vertexIndex);
+
+public:
+    /**
+     * Perform Area-Equalizing Remeshing.
+     * Based on the paper: “A Remeshing Approach to Multiresolution Modeling” by Botsch & Kobbelt
+     * 4-step approach:
+     * 1. Split long edges into two shorter edges
+     * 2. Combine short edges into one long edge
+     * 3. For every vertex, minimize its degree’s deviation from 6 (or 4 for boundary)
+     * 4. Tangentially move every vertex towards its centroid (of all its neighbours) <-- Did not do this, used Laplacian smoothing instead.
+     *
+     * @param numIterations The number of iterations of remeshing to run
+     */
+    void performRemeshing(int numIterations);
 
 private:
     void printVertexList();
@@ -115,34 +166,7 @@ private:
     void computeTriangleNormal(int triIndex);
     void computeVertexNormal(int vertexIndex);
 
-public:
-    /**
-     * Perform Area-Equalizing Remeshing.
-     * Based on the paper: “A Remeshing Approach to Multiresolution Modeling” by Botsch & Kobbelt
-     * 4-step approach:
-     * 1. Split long edges into two shorter edges
-     * 2. Combine short edges into one long edge
-     * 3. For every vertex, minimize its degree’s deviation from 6 (or 4 for boundary)
-     * 4. Tangentially move every vertex towards its centroid (of all its neighbours)
-     *
-     * @param numIterations The number of iterations of remeshing to run
-     */
-    void performRemeshing(int numIterations);
 private:
-    /**
-     * Step 1 of the Remeshing algorithm.
-     *
-     * @param threshold the threshold length of an edge. Edges above this length will be split.
-     */
-    void splitAllLongEdges(float threshold);
-
-    /**
-      * Step 2 of the Remeshing algorithm.
-      *
-      * @param threshold the threshold length of an edge. Edges under this length will be merged.
-      */
-    void mergeAllShortEdges(float threshold);
-
     void setVertexColor(int vIdx, float r, float g, float b);
 };
 
