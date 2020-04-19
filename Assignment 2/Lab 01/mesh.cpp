@@ -1157,20 +1157,26 @@ void myObjType::performRemeshing(int numIterations)
     ScopedTimer timer("Area-Equalizing Remeshing routine");
     cout << "Starting to do Remeshing with " << numIterations << " iterations." << endl;
 
+    double runningLengthSum = 0.0f;
+    for (const Edge& edge : edgeSet) {
+        double len = magnitude(vec3(vlist[edge.v1]) - vec3(vlist[edge.v2]));
+        runningLengthSum += len;
+    }
+
+    double meanEdgeLength = runningLengthSum / edgeSet.size();
+
+    double splitThreshold = 4.0f * meanEdgeLength / 3.0f;
+    double collapseThreshold = 4.0f * meanEdgeLength / 5.0f;
+
     for (int itNum = 0; itNum < numIterations; itNum++) {
         meshVersions.emplace_back(*this);
+
         unordered_map<Edge, double> edgeLengths;
-        double runningLengthSum = 0.0f;
         for (const Edge& edge : edgeSet) {
             double len = magnitude(vec3(vlist[edge.v1]) - vec3(vlist[edge.v2]));
             edgeLengths.emplace(edge, len);
-            runningLengthSum += len;
         }
 
-        double meanEdgeLength = runningLengthSum / edgeSet.size();
-
-        double splitThreshold = 4.0f * meanEdgeLength / 3.0f;
-        double collapseThreshold = 4.0f * meanEdgeLength / 5.0f;
         unordered_set<Edge> toSplit;
         unordered_set<Edge> toCollapse;
 
