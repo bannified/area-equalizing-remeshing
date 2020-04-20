@@ -79,7 +79,7 @@ public:
                                     // if degree is -1, then vertex does not exist.
     unordered_map<int, unordered_set<int>> vertexLinks; // Lk(v), where v is a vertex
     unordered_map<Edge, unordered_set<int>> edgeLinks; // Lk(e), where e is an edge.
-    
+
     std::unordered_map<int, std::unordered_set<int> > vertexToTriangles;
 
     int currentVertex = 1;
@@ -100,73 +100,87 @@ public:
     myObjType() { vcount = 0; tcount = 0; };
     void readFile(char* filename);  // assumming file contains a manifold
 
-    void computeVertexNormals();
-
-    void computeTriangleNormals();
-
-    void initializeVertexColors();
-    void computeFNext();
-    void computeNumComponents();
-
     void writeFile(char* filename);
     void draw();
-    void computeStat();
-
-    void printStats();
 
     int org(OrTri ot);
     int dest(OrTri ot);
     int last(OrTri ot);
 
-    //// Triangles
+    // Triangles manipulation. 
     bool isValidTriangle(int index);
     int AddTriangle(int vertices[3]); // returns the index of the triangle added
     bool AddTriangleAtIndex(int index, int vertices[3]); // returns true if successful
     void RemoveTriangleAtIndex(int index);
 
-    // Vertices
+    // Vertex Manipulation.
     bool isValidVertex(int index);
     int addVertex(vec3 position); // returns the index of the vertex added
     void setVertexPosition(int index, vec3 position);
     void removeVertexOnly(int index); // plainly just removes the vertex
 
-    bool IsEdgeContractable(Edge edge);
-
+    /**
+     * Edge Collapsing/Contracting
+     * Should probably use IsEdgeCollapsible to check if an edge is collapsible before using CollapseEdge.
+     */
+    bool IsEdgeCollapsible(Edge edge);
     void CollapseEdge(Edge edge);
-    void SplitEdge(Edge edge);
-    bool ShouldFlipEdge(const Edge& edge);
-    void FlipEdge(const Edge& edge);
 
     /**
-     * Simple Laplacian Smoothing. ref: https://en.wikipedia.org/wiki/Laplacian_smoothing
+     * Splits an edge such that it becomes two edges.
+     * Triangles that use this edge also get split accordingly.
      */
-    vec3 computeVertexCentroid(int vertexIndex);
+    void SplitEdge(Edge edge);
+
+    /**
+     * Edge Flipping
+     * Should probably use ShouldFlip to check if an edge is collapsible before using CollapseEdge.
+     */
+    bool ShouldFlipEdge(const Edge& edge);
+    void FlipEdge(const Edge& edge);
 
 public:
     /**
      * Perform Area-Equalizing Remeshing.
      * Based on the paper: “A Remeshing Approach to Multiresolution Modeling” by Botsch & Kobbelt
      * 4-step approach:
-     * 1. Split long edges into two shorter edges
-     * 2. Combine short edges into one long edge
-     * 3. For every vertex, minimize its degree’s deviation from 6 (or 4 for boundary)
-     * 4. Tangentially move every vertex towards its centroid (of all its neighbours) <-- Did not do this, used Laplacian smoothing instead.
+     * 1. Split long edges into two shorter edges [Edge Split]
+     * 2. Combine short edges into one long edge [Edge Collapse]
+     * 3. For every vertex, minimize its degree’s deviation from 6 (or 4 for boundary) [Edge Flip]
+     * 4. Tangentially move every vertex towards its centroid (of all its neighbours) [Laplacian vertex smoothing]
      *
+     * This function generates a mesh version for every iteration that you can switch in between to examine.
+     * 
      * @param numIterations The number of iterations of remeshing to run
      */
     void performRemeshing(int numIterations);
 
 private:
+    void initializeVertexColors();
+
+    void computeVertexNormals();
+    void computeVertexNormal(int vertexIndex);
+
+    void computeTriangleNormal(int triIndex);
+    void computeTriangleNormals();
+    void computeFNext();
+    void computeNumComponents();
+    void computeStat();
+
+    /**
+     * Simple Laplacian Smoothing. ref: https://en.wikipedia.org/wiki/Laplacian_smoothing
+     *
+     * @param vertexIndex index of the vertex to smooth out
+     */
+    vec3 computeVertexCentroid(int vertexIndex);
+
+    /* Debug functions */
+    void printStats();
     void printVertexList();
     void printfnList();
     void printTriList();
-
     void printOrTri(OrTri ot);
 
-    void computeTriangleNormal(int triIndex);
-    void computeVertexNormal(int vertexIndex);
-
-private:
     void setVertexColor(int vIdx, float r, float g, float b);
 };
 

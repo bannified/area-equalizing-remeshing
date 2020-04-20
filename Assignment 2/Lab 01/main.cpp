@@ -15,11 +15,7 @@
 
 using namespace std;
 
-
-//#define M_PI 3.141592654
-
 myObjType myObj;
-
 
 // global variable
 
@@ -194,6 +190,7 @@ void motion(int x, int y)
 int main(int argc, char **argv)
 {
 	char filename[255];
+
 	cout<<"CS3242 "<< endl<< endl;
 
 
@@ -210,7 +207,10 @@ int main(int argc, char **argv)
 	cout << "W: Draw Wireframe"<<endl;
 	cout << "P: Draw Polygon"<<endl;
 	cout << "V: Draw Vertices"<<endl;
+    cout << "O: Write to File" << endl;
     cout << "G: Start Area-Equalizing Remeshing" << endl;
+    cout << "N: Go to previous version of mesh" << endl;
+    cout << "M: Go to next version of mesh" << endl;
 	cout << "Q: Quit" <<endl<< endl;
 
 	cout << "Left mouse click and drag: rotate the object"<<endl;
@@ -220,7 +220,7 @@ int main(int argc, char **argv)
 	glutInitDisplayMode (GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize (600, 600);
 	glutInitWindowPosition (50, 50);
-	glutCreateWindow ("CS3241 Assignment 3");
+	glutCreateWindow ("CS3242 Modelling Assignment");
 	glClearColor (1.0,1.0,1.0, 1.0);
 	glutDisplayFunc(display);
 	glutMouseFunc(mouse);

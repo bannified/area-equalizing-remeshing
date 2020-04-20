@@ -91,13 +91,15 @@ void myObjType::writeFile(char* filename)
 
     // write vertices
     const string vertexPrefix = "v";
-    for (int i = 1; i < vcount; i++) {
+    for (int i = 1; i <= vcount; i++) {
         double* vertex = vlist[i];
-        outFile << vertexPrefix << " " << vertex[0] << " " << vertex[1] << " " << vertex[2] << endl;
+        outFile << setprecision(6) << vertexPrefix << " " << vertex[0] << " " << vertex[1] << " " << vertex[2] << endl;
     }
 
+    outFile << endl;
+
     const string facePrefix = "f";
-    for (int i = 1; i < tcount; i++) {
+    for (int i = 1; i <= tcount; i++) {
         int* tri = tlist[i];
         outFile << facePrefix << " " << tri[0] << " " << tri[1] << " " << tri[2] << endl;
     }
@@ -795,7 +797,7 @@ void myObjType::removeVertexOnly(int index)
     unassignedVerts.emplace(index);
 }
 
-bool myObjType::IsEdgeContractable(Edge edge)
+bool myObjType::IsEdgeCollapsible(Edge edge)
 {
     //cout << "--------- Checking if " << edge.ToString() << " is contractable... ---------" << endl;
 
@@ -1197,7 +1199,7 @@ void myObjType::performRemeshing(int numIterations)
 
         // Step 2: Collapse edges that are too small.
         for (const Edge& edge : toCollapse) {
-            if (IsEdgeContractable(edge)) {
+            if (IsEdgeCollapsible(edge)) {
                 CollapseEdge(edge);
             }
         }
