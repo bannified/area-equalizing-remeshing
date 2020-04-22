@@ -489,6 +489,11 @@ void myObjType::computeStat()
     minAngle = 180;
     maxAngle = 0;
 
+    for (int i = 0; i < 18; i++) {
+        statMinAngle[i] = 0;
+        statMaxAngle[i] = 0;
+    }
+
     for (int i = 1; i <= tcount; i++) {
         if (!isValidTriangle(i)) continue;
         int* vertices = tlist[i];
