@@ -342,6 +342,8 @@ void myObjType::readFile(char* filename)
     }
 
     initializeMesh();
+
+    printStats();
 }
 
 void myObjType::computeVertexNormals()
